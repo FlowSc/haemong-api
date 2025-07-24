@@ -167,7 +167,7 @@ POST   /chat/rooms                 # Create new chat room
 POST   /chat/rooms/:id/messages    # Send message
 GET    /chat/rooms/:id/messages    # Get chat history
 PUT    /chat/rooms/:id/bot-settings # Update bot personality
-POST   /chat/messages/generate-image # Generate dream image
+POST   /chat/rooms/today/messages/generate-image # Generate dream image
 POST   /chat/messages/generate-video # Generate dream video (Premium only)
 GET    /chat/bot-settings/options   # Get available bot options
 ```
@@ -224,9 +224,9 @@ POST /chat/rooms/today/messages
 
 ### Image Generation
 ```javascript
-// Generate dream visualization (automatically uses latest dream content)
-POST /chat/messages/generate-image
-// No body required - automatically uses the most recent dream from today's chat
+// Generate dream visualization (automatically uses latest dream content from today's chat)
+POST /chat/rooms/today/messages/generate-image
+// No body required - automatically uses the most recent dream from today's chat room
 ```
 
 ### Video Shorts Generation (Premium Only)
@@ -346,8 +346,8 @@ curl -X GET "http://localhost:3000/chat/rooms/$ROOM_ID/messages" \
 
 #### 5️⃣ 꿈 이미지 생성 테스트
 ```bash
-# 꿈 장면을 이미지로 생성 (자동으로 최신 꿈 내용 사용)
-curl -X POST "http://localhost:3000/chat/messages/generate-image" \
+# 꿈 장면을 이미지로 생성 (자동으로 오늘의 채팅방에서 최신 꿈 내용 사용)
+curl -X POST "http://localhost:3000/chat/rooms/today/messages/generate-image" \
   -H "Authorization: Bearer $TOKEN"
 ```
 

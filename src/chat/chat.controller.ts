@@ -172,7 +172,7 @@ export class ChatController {
     return { chatRoom: updatedChatRoom };
   }
 
-  @Post('messages/generate-image')
+  @Post('rooms/today/messages/generate-image')
   async generateImageForMessage(
     @Req() req: Request,
   ): Promise<ImageGenerationResponseDto> {
