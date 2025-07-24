@@ -59,12 +59,41 @@ export class AiService {
     }
   }
 
+  async summarizeInterpretation(interpretationContent: string): Promise<string> {
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: '해몽 내용을 이미지 생성에 적합하도록 100자 이내로 핵심 키워드와 상징적 의미만 간결하게 요약해주세요. 구체적인 시각적 요소와 감정을 포함하되, 불필요한 설명은 제거하세요.',
+          },
+          {
+            role: 'user',
+            content: `다음 해몽 내용을 요약해주세요:\n${interpretationContent}`,
+          },
+        ],
+        max_tokens: 150,
+        temperature: 0.3,
+      });
+
+      return completion.choices[0].message.content || interpretationContent;
+    } catch (error) {
+      console.error('Interpretation summarization error:', error);
+      return interpretationContent;
+    }
+  }
+
   async generateDreamImageUrl(
     dreamContent: string,
+    interpretationContent: string,
     botSettings: BotSettings,
   ): Promise<string | null> {
+    const summarizedInterpretation = await this.summarizeInterpretation(interpretationContent);
+    
     return this.imageGenerationService.generateDreamImage(
       dreamContent,
+      summarizedInterpretation,
       botSettings,
     );
   }

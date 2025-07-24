@@ -152,6 +152,23 @@ export class MessageService {
     return data ? this.mapSupabaseMessageToEntity(data) : null;
   }
 
+  async getLatestBotMessage(chatRoomId: string): Promise<Message | null> {
+    const { data, error } = await getSupabaseAdminClient()
+      .from('messages')
+      .select('*')
+      .eq('chat_room_id', chatRoomId)
+      .eq('type', 'bot')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to get latest bot message: ${error.message}`);
+    }
+
+    return data ? this.mapSupabaseMessageToEntity(data) : null;
+  }
+
   async initializeChatRoom(
     chatRoomId: string,
     userId?: string,
@@ -215,10 +232,15 @@ export class MessageService {
       };
     }
 
+    // Get latest bot message (interpretation content)
+    const latestBotMessage = await this.getLatestBotMessage(chatRoom.id);
+    const interpretationContent = latestBotMessage ? latestBotMessage.content : '';
+
     // Generate image for premium users
     try {
       const imageUrl = await this.aiService.generateDreamImageUrl(
         latestUserMessage.content,
+        interpretationContent,
         chatRoom.botSettings,
       );
 
