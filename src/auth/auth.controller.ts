@@ -7,6 +7,7 @@ import {
   Req,
   Res,
   Query,
+  Delete,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Request, Response } from 'express';
@@ -81,5 +82,22 @@ export class AuthController {
   async generateNickname() {
     const nickname = await this.authService.generateUniqueNickname();
     return { nickname };
+  }
+
+  @Post('logout')
+  @UseGuards(JwtAuthGuard)
+  async logout() {
+    return { message: 'Logged out successfully' };
+  }
+
+  @Delete('account')
+  @UseGuards(JwtAuthGuard)
+  async deleteAccount(@Req() req: Request) {
+    const userId = req.user?.['sub'];
+    if (!userId) {
+      throw new Error('User ID not found');
+    }
+    await this.authService.deleteAccount(userId);
+    return { message: 'Account deleted successfully' };
   }
 }

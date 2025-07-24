@@ -270,4 +270,20 @@ export class AuthService {
   async generateUniqueNickname(): Promise<string> {
     return this.nicknameService.generateUniqueNickname();
   }
+
+  async deleteAccount(userId: string): Promise<void> {
+    const user = await this.findUserById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const { error } = await getSupabaseAdminClient()
+      .from('users')
+      .update({ is_active: false })
+      .eq('id', userId);
+
+    if (error) {
+      throw new Error(`Failed to delete account: ${error.message}`);
+    }
+  }
 }
