@@ -8,6 +8,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
+import { CommunityModule } from './community/community.module';
 
 import { createWinstonConfig } from './config/logger.config';
 import { createThrottlerConfig } from './config/security.config';
@@ -41,6 +42,7 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
     }),
     AuthModule,
     ChatModule,
+    CommunityModule,
   ],
   controllers: [AppController],
   providers: [

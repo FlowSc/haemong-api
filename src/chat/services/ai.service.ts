@@ -138,8 +138,9 @@ export class AiService {
 
   async generateWelcomeImageUrl(
     botSettings: BotSettings,
+    userId?: string,
   ): Promise<string | null> {
-    return this.imageGenerationService.generateWelcomeImage(botSettings);
+    return this.imageGenerationService.generateWelcomeImage(botSettings, userId);
   }
 
   getDefaultBotSettings(): BotSettings {

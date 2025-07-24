@@ -1,16 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import OpenAI from 'openai';
 import { BotSettings } from '../entities/bot-settings.entity';
 import { GeneratedImage } from '../entities/generated-image.entity';
 import { BotGender } from '../../common/enums/bot-gender.enum';
 import { BotStyle } from '../../common/enums/bot-style.enum';
 import { getSupabaseAdminClient } from '../../config/supabase.config';
+import { StorageService } from '../../common/services/storage.service';
 
 @Injectable()
 export class ImageGenerationService {
   private openai: OpenAI;
 
-  constructor() {
+  constructor(private readonly storageService: StorageService) {
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
@@ -40,25 +41,50 @@ export class ImageGenerationService {
         style: botSettings.style === BotStyle.EASTERN ? 'natural' : 'vivid',
       });
 
-      const imageUrl = response.data?.[0]?.url;
-      if (!imageUrl) {
+      const tempImageUrl = response.data?.[0]?.url;
+      if (!tempImageUrl) {
         return null;
       }
 
-      // Save to generated_images table if user info is provided
-      if (userId && chatRoomId) {
-        await this.saveGeneratedImage({
-          userId,
-          chatRoomId,
-          imageUrl,
-          imagePrompt,
-          botGender: botSettings.gender,
-          botStyle: botSettings.style,
-          isPremium,
-        });
+      // 항상 Supabase Storage에 저장
+      if (!userId || !chatRoomId) {
+        // userId나 chatRoomId가 없는 경우 임시 ID 생성
+        const tempUserId = userId || 'temp-' + Date.now();
+        const tempChatRoomId = chatRoomId || 'temp-' + Date.now();
+        
+        const storageUrl = await this.storageService.uploadImageFromUrl(
+          tempImageUrl,
+          tempUserId,
+          tempChatRoomId
+        );
+        
+        return storageUrl || null;
       }
 
-      return imageUrl;
+      // 정상적인 케이스: Storage에 저장 후 DB에도 기록
+      const storageUrl = await this.storageService.uploadImageFromUrl(
+        tempImageUrl,
+        userId,
+        chatRoomId
+      );
+
+      if (!storageUrl) {
+        console.error('Failed to upload image to storage, returning DALL-E URL as fallback');
+        return tempImageUrl; // Storage 실패 시 DALL-E URL 폴백
+      }
+
+      // 데이터베이스에 저장
+      await this.saveGeneratedImage({
+        userId,
+        chatRoomId,
+        imageUrl: storageUrl,
+        imagePrompt,
+        botGender: botSettings.gender,
+        botStyle: botSettings.style,
+        isPremium,
+      });
+
+      return storageUrl;
     } catch (error) {
       console.error('Image generation error:', error);
       return null; // 이미지 생성 실패 시 null 반환 (해몽은 계속 진행)
@@ -122,7 +148,7 @@ ${stylePrompt} The image should combine the literal dream imagery with the symbo
     }
   }
 
-  async generateWelcomeImage(botSettings: BotSettings): Promise<string | null> {
+  async generateWelcomeImage(botSettings: BotSettings, userId?: string): Promise<string | null> {
     try {
       const welcomePrompt = this.getWelcomeImagePrompt(botSettings);
 
@@ -135,7 +161,22 @@ ${stylePrompt} The image should combine the literal dream imagery with the symbo
         style: botSettings.style === BotStyle.EASTERN ? 'natural' : 'vivid',
       });
 
-      return response.data?.[0]?.url || null;
+      const tempImageUrl = response.data?.[0]?.url;
+      if (!tempImageUrl) {
+        return null;
+      }
+
+      // Welcome 이미지도 Storage에 저장
+      const tempUserId = userId || 'welcome-' + Date.now();
+      const tempChatRoomId = 'welcome-' + Date.now();
+      
+      const storageUrl = await this.storageService.uploadImageFromUrl(
+        tempImageUrl,
+        tempUserId,
+        tempChatRoomId
+      );
+      
+      return storageUrl || tempImageUrl; // Storage 실패 시 DALL-E URL 폴백
     } catch (error) {
       console.error('Welcome image generation error:', error);
       return null;

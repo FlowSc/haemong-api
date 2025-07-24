@@ -5,6 +5,7 @@ import { MessageService } from './services/message.service';
 import { AiService } from './services/ai.service';
 import { ImageGenerationService } from './services/image-generation.service';
 import { VideoGenerationService } from './services/video-generation.service';
+import { StorageService } from '../common/services/storage.service';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
@@ -16,6 +17,7 @@ import { AuthModule } from '../auth/auth.module';
     AiService,
     ImageGenerationService,
     VideoGenerationService,
+    StorageService,
   ],
   exports: [ChatRoomService, MessageService],
 })
