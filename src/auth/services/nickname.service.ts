@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { getSupabaseClient } from '../../config/supabase.config';
+import { getSupabaseAdminClient } from '../../config/supabase.config';
 
 @Injectable()
 export class NicknameService {
@@ -60,7 +60,7 @@ export class NicknameService {
 
   async checkNicknameAvailability(nickname: string): Promise<boolean> {
     try {
-      const { data, error } = await getSupabaseClient()
+      const { data, error } = await getSupabaseAdminClient()
         .from('users')
         .select('id')
         .eq('nickname', nickname)

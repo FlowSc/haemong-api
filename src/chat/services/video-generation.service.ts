@@ -14,7 +14,7 @@ export class VideoGenerationService {
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
-    
+
     this.replicate = new Replicate({
       auth: process.env.REPLICATE_API_TOKEN,
     });
@@ -29,18 +29,27 @@ export class VideoGenerationService {
   ): Promise<string> {
     try {
       // 1. 꿈 해몽 텍스트 생성
-      const interpretation = await this.generateDreamInterpretation(dreamContent, botSettings);
-      
+      const interpretation = await this.generateDreamInterpretation(
+        dreamContent,
+        botSettings,
+      );
+
       // 2. 영상용 프롬프트 생성
-      const videoPrompt = this.createVideoPrompt(dreamContent, interpretation, botSettings);
-      
+      const videoPrompt = this.createVideoPrompt(
+        dreamContent,
+        interpretation,
+        botSettings,
+      );
+
       // 3. Replicate API를 사용하여 실제 영상 생성
       const videoUrl = await this.generateVideoWithReplicate(videoPrompt);
-      
+
       return videoUrl;
     } catch (error) {
       console.error('꿈 영상 생성 중 오류:', error);
-      throw new Error('꿈 영상 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      throw new Error(
+        '꿈 영상 생성에 실패했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -50,19 +59,21 @@ export class VideoGenerationService {
   private async generateVideoWithReplicate(prompt: string): Promise<string> {
     try {
       console.log('영상 생성 시작:', prompt);
-      
-      // Stable Video Diffusion 모델 사용
+
+      // Hunyuan Video 모델 사용
       const output = await this.replicate.run(
-        "stability-ai/stable-video-diffusion:3f0457e4619daac51203dedb1a4fae6ca02c9bae3c5bbc61bd2f3e9e34f0a565",
+        'tencent/hunyuan-video:6c9132aee14409cd6568d030453f1ba50f5f3412b844fe67f78a9eb62d55664f',
         {
           input: {
-            input_image: await this.generateImageForVideo(prompt),
-            video_length: "25_frames_with_svd", // 약 10초 영상
-            sizing_strategy: "maintain_aspect_ratio",
-            motion_bucket_id: 127,
-            cond_aug: 0.02
-          }
-        }
+            prompt: prompt,
+            video_length: 100, // 4k+1 format (약 5.4초 at 24fps)
+            width: 480,        // 9:16 비율에 가까운 세로형
+            height: 850,      // 9:16 비율
+            fps: 24,
+            infer_steps: 50,
+            embedded_guidance_scale: 6
+          },
+        },
       );
 
       if (output && typeof output === 'string') {
@@ -74,7 +85,7 @@ export class VideoGenerationService {
       throw new Error('영상 생성 결과를 받지 못했습니다.');
     } catch (error) {
       console.error('Replicate 영상 생성 오류:', error);
-      // Fallback: 간단한 애니메이션 효과가 있는 이미지 생성
+      // Fallback: 다른 모델로 시도
       return await this.generateFallbackVideo(prompt);
     }
   }
@@ -101,24 +112,24 @@ export class VideoGenerationService {
   }
 
   /**
-   * 대체 영상 생성 (애니메이션 효과가 있는 이미지)
+   * 대체 영상 생성 (다른 모델로 시도)
    */
   private async generateFallbackVideo(prompt: string): Promise<string> {
     try {
-      // RunwayML Gen-2 또는 다른 모델 사용
+      // 더 간단한 text-to-video 모델 사용
       const output = await this.replicate.run(
-        "anotherjesse/zeroscope-v2-xl:9f747673945c62801b13b84701c6b2c53589db5b3f5de1b4c5a1f47b0b7a0e7b",
+        'anotherjesse/zeroscope-v2-xl:9f747673945c62801b13b84701c6b2c53589db5b3f5de1b4c5a1f47b0b7a0e7b',
         {
           input: {
             prompt: prompt,
-            width: 576,
-            height: 1024, // 세로 영상
-            num_frames: 80, // 10초 영상 (8fps x 10초)
+            width: 1024,
+            height: 576,
+            num_frames: 24,
             num_inference_steps: 50,
-            guidance_scale: 15,
-            fps: 8
-          }
-        }
+            guidance_scale: 17.5,
+            model: 'xl'
+          },
+        },
       );
 
       if (output && typeof output === 'string') {
@@ -143,18 +154,18 @@ export class VideoGenerationService {
     botSettings: BotSettings,
   ): Promise<string> {
     const personality = this.getBotPersonality(botSettings);
-    
+
     const response = await this.openai.chat.completions.create({
       model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
       messages: [
         {
           role: 'system',
-          content: `당신은 ${personality.name}입니다. ${personality.description} ${personality.tone}로 꿈을 해석해주세요.`
+          content: `당신은 ${personality.name}입니다. ${personality.description} ${personality.tone}로 꿈을 해석해주세요.`,
         },
         {
           role: 'user',
-          content: `다음 꿈을 해석해주세요: ${dreamContent}`
-        }
+          content: `다음 꿈을 해석해주세요: ${dreamContent}`,
+        },
       ],
       max_tokens: 300,
       temperature: 0.7,
@@ -166,9 +177,13 @@ export class VideoGenerationService {
   /**
    * 영상 생성용 프롬프트 생성 (10초 영상에 적합)
    */
-  private createVideoPrompt(dreamContent: string, interpretation: string, botSettings: BotSettings): string {
+  private createVideoPrompt(
+    dreamContent: string,
+    interpretation: string,
+    botSettings: BotSettings,
+  ): string {
     const visualStyle = this.getVisualStyle(botSettings);
-    
+
     return `Dream scene: ${dreamContent}. ${visualStyle}, dynamic camera movement, flowing transitions, mystical atmosphere, ethereal particles floating, gentle morphing effects, dreamy lighting changes, cinematic quality, vertical 9:16 format, surreal and enchanting environment, smooth 10-second narrative flow`;
   }
 
@@ -180,14 +195,18 @@ export class VideoGenerationService {
     botSettings: BotSettings,
   ): Promise<string> {
     try {
-      const videoPrompt = this.createVideoScriptPrompt(dreamContent, botSettings);
+      const videoPrompt = this.createVideoScriptPrompt(
+        dreamContent,
+        botSettings,
+      );
 
       const response = await this.openai.chat.completions.create({
         model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
         messages: [
           {
             role: 'system',
-            content: '당신은 꿈 해몽을 주제로 한 쇼츠 영상 스크립트를 작성하는 전문가입니다. 30초 내외의 짧고 임팩트 있는 영상 스크립트를 작성해주세요.',
+            content:
+              '당신은 꿈 해몽을 주제로 한 쇼츠 영상 스크립트를 작성하는 전문가입니다. 30초 내외의 짧고 임팩트 있는 영상 스크립트를 작성해주세요.',
           },
           {
             role: 'user',
@@ -271,7 +290,7 @@ export class VideoGenerationService {
         }
 
         // API 요청 제한을 위한 딜레이
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
       return imageUrls;
@@ -307,9 +326,12 @@ export class VideoGenerationService {
     };
   }
 
-  private createVideoScriptPrompt(dreamContent: string, botSettings: BotSettings): string {
+  private createVideoScriptPrompt(
+    dreamContent: string,
+    botSettings: BotSettings,
+  ): string {
     const personality = this.getBotPersonality(botSettings);
-    
+
     return `
 꿈 내용: ${dreamContent}
 
@@ -335,29 +357,38 @@ export class VideoGenerationService {
   }
 
   private getBotPersonality(botSettings: BotSettings) {
-    if (botSettings.gender === BotGender.MALE && botSettings.style === BotStyle.EASTERN) {
+    if (
+      botSettings.gender === BotGender.MALE &&
+      botSettings.style === BotStyle.EASTERN
+    ) {
       return {
         name: '전통 해몽사',
         description: '권위있고 격식있는 해몽 전문가',
-        tone: '격식있고 권위적인 어조'
+        tone: '격식있고 권위적인 어조',
       };
-    } else if (botSettings.gender === BotGender.FEMALE && botSettings.style === BotStyle.EASTERN) {
+    } else if (
+      botSettings.gender === BotGender.FEMALE &&
+      botSettings.style === BotStyle.EASTERN
+    ) {
       return {
         name: '따뜻한 해몽사',
         description: '어머니같이 따뜻하고 포용적인 해몽사',
-        tone: '따뜻하고 친근한 어조'
+        tone: '따뜻하고 친근한 어조',
       };
-    } else if (botSettings.gender === BotGender.MALE && botSettings.style === BotStyle.WESTERN) {
+    } else if (
+      botSettings.gender === BotGender.MALE &&
+      botSettings.style === BotStyle.WESTERN
+    ) {
       return {
         name: '심리학자',
         description: '과학적이고 논리적인 분석을 하는 전문가',
-        tone: '전문적이고 분석적인 어조'
+        tone: '전문적이고 분석적인 어조',
       };
     } else {
       return {
         name: '상담사',
         description: '공감적이고 치유적인 상담 전문가',
-        tone: '공감적이고 부드러운 어조'
+        tone: '공감적이고 부드러운 어조',
       };
     }
   }
@@ -381,7 +412,9 @@ export class VideoGenerationService {
       }
     }
 
-    return prompts.length > 0 ? prompts : ['Dream scene with mystical atmosphere'];
+    return prompts.length > 0
+      ? prompts
+      : ['Dream scene with mystical atmosphere'];
   }
 
   private generateVideoTitle(dreamContent: string): string {

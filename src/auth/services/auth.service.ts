@@ -5,7 +5,10 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { getSupabaseClient } from '../../config/supabase.config';
+import {
+  getSupabaseClient,
+  getSupabaseAdminClient,
+} from '../../config/supabase.config';
 import { RegisterDto } from '../dto/register.dto';
 import { LoginDto } from '../dto/login.dto';
 import { OAuthDto } from '../dto/oauth.dto';
@@ -34,7 +37,7 @@ export class AuthService {
     const userNickname =
       nickname || (await this.nicknameService.generateUniqueNickname());
 
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await getSupabaseAdminClient()
       .from('users')
       .insert([
         {
@@ -99,7 +102,7 @@ export class AuthService {
       const userNickname =
         nickname || (await this.nicknameService.generateUniqueNickname());
 
-      const { data, error } = await getSupabaseClient()
+      const { data, error } = await getSupabaseAdminClient()
         .from('users')
         .insert([
           {
@@ -130,7 +133,7 @@ export class AuthService {
   }
 
   async findUserByEmail(email: string): Promise<User | null> {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await getSupabaseAdminClient()
       .from('users')
       .select('*')
       .eq('email', email)
@@ -147,7 +150,7 @@ export class AuthService {
     provider: AuthProvider,
     providerId: string,
   ): Promise<User | null> {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await getSupabaseAdminClient()
       .from('users')
       .select('*')
       .eq('provider', provider)
@@ -162,7 +165,7 @@ export class AuthService {
   }
 
   async findUserById(id: string): Promise<User | null> {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await getSupabaseAdminClient()
       .from('users')
       .select('*')
       .eq('id', id)
@@ -199,7 +202,11 @@ export class AuthService {
     const user = await this.findUserById(userId);
     if (!user) return false;
 
+
     if (user.subscriptionStatus === SubscriptionStatus.PREMIUM) {
+
+      console.log(user);
+      
       // 프리미엄 만료일 확인
       if (user.premiumExpiresAt && user.premiumExpiresAt > new Date()) {
         return true;
@@ -227,7 +234,7 @@ export class AuthService {
       updateData.premium_expires_at = expiresAt.toISOString();
     }
 
-    const { error } = await getSupabaseClient()
+    const { error } = await getSupabaseAdminClient()
       .from('users')
       .update(updateData)
       .eq('id', userId);

@@ -12,7 +12,11 @@
       "Bash(mv:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(grep:*)",
+      "Bash(curl:*)",
+      "Bash(rm:*)",
+      "WebFetch(domain:replicate.com)"
     ],
     "deny": []
   }
