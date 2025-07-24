@@ -10,7 +10,9 @@
       "Bash(npm run start:dev:*)",
       "Bash(pkill:*)",
       "Bash(mv:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": []
   }
