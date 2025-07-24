@@ -8,6 +8,7 @@ import {
   Res,
   Query,
   Delete,
+  Put,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Request, Response } from 'express';
@@ -16,6 +17,8 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { CheckNicknameDto } from './dto/check-nickname.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
+import { UpdateNicknameDto } from './dto/update-nickname.dto';
+import { UserProfileDto } from './dto/user-profile.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
@@ -66,8 +69,12 @@ export class AuthController {
 
   @Get('profile')
   @UseGuards(JwtAuthGuard)
-  async getProfile(@Req() req: Request) {
-    return req.user;
+  async getProfile(@Req() req: Request): Promise<UserProfileDto> {
+    const userId = req.user?.['sub'];
+    if (!userId) {
+      throw new Error('User ID not found');
+    }
+    return this.authService.getUserProfile(userId);
   }
 
   @Get('check-nickname')
@@ -88,6 +95,20 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async logout() {
     return { message: 'Logged out successfully' };
+  }
+
+  @Put('nickname')
+  @UseGuards(JwtAuthGuard)
+  async updateNickname(
+    @Req() req: Request,
+    @Body() updateNicknameDto: UpdateNicknameDto,
+  ) {
+    const userId = req.user?.['sub'];
+    if (!userId) {
+      throw new Error('User ID not found');
+    }
+    await this.authService.updateNickname(userId, updateNicknameDto.nickname);
+    return { message: 'Nickname updated successfully' };
   }
 
   @Delete('account')

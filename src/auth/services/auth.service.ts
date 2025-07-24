@@ -13,6 +13,8 @@ import { RegisterDto } from '../dto/register.dto';
 import { LoginDto } from '../dto/login.dto';
 import { OAuthDto } from '../dto/oauth.dto';
 import { AuthResponseDto } from '../dto/auth-response.dto';
+import { UserProfileDto } from '../dto/user-profile.dto';
+import { UserStatsDto } from '../dto/user-stats.dto';
 import { User } from '../entities/user.entity';
 import { AuthProvider } from '../../common/enums/auth-provider.enum';
 import { SubscriptionStatus } from '../../common/enums/subscription-status.enum';
@@ -269,6 +271,98 @@ export class AuthService {
 
   async generateUniqueNickname(): Promise<string> {
     return this.nicknameService.generateUniqueNickname();
+  }
+
+  async updateNickname(userId: string, nickname: string): Promise<void> {
+    const user = await this.findUserById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const isAvailable = await this.nicknameService.checkNicknameAvailability(nickname);
+    if (!isAvailable) {
+      throw new ConflictException('Nickname is already taken');
+    }
+
+    const { error } = await getSupabaseAdminClient()
+      .from('users')
+      .update({ nickname })
+      .eq('id', userId);
+
+    if (error) {
+      throw new Error(`Failed to update nickname: ${error.message}`);
+    }
+  }
+
+  async getUserProfile(userId: string): Promise<UserProfileDto> {
+    const user = await this.findUserById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const stats = await this.getUserStats(userId);
+
+    return {
+      user: this.excludePassword(user),
+      stats,
+    };
+  }
+
+  async getUserStats(userId: string): Promise<UserStatsDto> {
+    const supabase = getSupabaseAdminClient();
+
+    // Get total chat rooms count
+    const { count: totalChatRooms } = await supabase
+      .from('chat_rooms')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    // Get total dream interpretations (bot messages)
+    const { count: totalDreamInterpretations } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('type', 'bot');
+
+    // Get total images generated
+    const { count: totalImagesGenerated } = await supabase
+      .from('generated_images')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+
+    // Get current month interpretations
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const { count: currentMonthInterpretations } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('type', 'bot')
+      .gte('created_at', startOfMonth.toISOString());
+
+    // Get last activity date
+    const { data: lastMessage } = await supabase
+      .from('messages')
+      .select('created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const user = await this.findUserById(userId);
+    const isPremiumUser = await this.isPremiumUser(userId);
+
+    return {
+      totalDreamInterpretations: totalDreamInterpretations || 0,
+      totalImagesGenerated: totalImagesGenerated || 0,
+      totalChatRooms: totalChatRooms || 0,
+      currentMonthInterpretations: currentMonthInterpretations || 0,
+      isPremiumUser,
+      joinedDate: user?.createdAt || new Date(),
+      lastActivityDate: lastMessage ? new Date(lastMessage.created_at) : undefined,
+    };
   }
 
   async deleteAccount(userId: string): Promise<void> {

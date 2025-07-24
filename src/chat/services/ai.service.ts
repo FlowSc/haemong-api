@@ -88,6 +88,9 @@ export class AiService {
     dreamContent: string,
     interpretationContent: string,
     botSettings: BotSettings,
+    userId?: string,
+    chatRoomId?: string,
+    isPremium = false,
   ): Promise<string | null> {
     const summarizedInterpretation = await this.summarizeInterpretation(interpretationContent);
     
@@ -95,6 +98,9 @@ export class AiService {
       dreamContent,
       summarizedInterpretation,
       botSettings,
+      userId,
+      chatRoomId,
+      isPremium,
     );
   }
 

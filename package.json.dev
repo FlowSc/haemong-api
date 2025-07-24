@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "start:dev": "cross-env NODE_ENV=development nest start --watch",
+    "start:dev:debug": "cross-env NODE_ENV=development nest start --debug --watch",
+    "build:dev": "cross-env NODE_ENV=development nest build",
+    "test:dev": "cross-env NODE_ENV=development jest"
+  }
+}

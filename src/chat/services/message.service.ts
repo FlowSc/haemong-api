@@ -242,6 +242,9 @@ export class MessageService {
         latestUserMessage.content,
         interpretationContent,
         chatRoom.botSettings,
+        userId,
+        chatRoom.id,
+        isPremium,
       );
 
       if (imageUrl) {
