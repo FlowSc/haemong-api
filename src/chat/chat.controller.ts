@@ -175,12 +175,11 @@ export class ChatController {
   @Post('messages/generate-image')
   async generateImageForMessage(
     @Req() req: Request,
-    @Body() generateImageDto: GenerateImageDto,
   ): Promise<ImageGenerationResponseDto> {
     const userId = req.user!.id;
     return this.messageService.generateImageForMessage(
       userId,
-      generateImageDto,
+      {},
     );
   }
 
@@ -204,11 +203,11 @@ export class ChatController {
     @Body() generateVideoDto: GenerateVideoDto,
   ): Promise<VideoGenerationResponseDto> {
     const userId = req.user!.id;
-    
+
     // 프리미엄 사용자 확인
     const chatRoom = await this.chatRoomService.getTodaysChatRoom(userId);
     const isPremium = await this.messageService.isPremiumUser(userId);
-    
+
     if (!isPremium) {
       throw new Error('쇼츠 영상 생성은 프리미엄 사용자만 이용 가능합니다.');
     }

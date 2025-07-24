@@ -224,12 +224,9 @@ POST /chat/rooms/today/messages
 
 ### Image Generation
 ```javascript
-// Generate dream visualization
+// Generate dream visualization (automatically uses latest dream content)
 POST /chat/messages/generate-image
-{
-  "dreamContent": "Flying over snowy mountains at sunset",
-  "style": "mystical"
-}
+// No body required - automatically uses the most recent dream from today's chat
 ```
 
 ### Video Shorts Generation (Premium Only)
@@ -349,17 +346,12 @@ curl -X GET "http://localhost:3000/chat/rooms/$ROOM_ID/messages" \
 
 #### 5️⃣ 꿈 이미지 생성 테스트
 ```bash
-# 꿈 장면을 이미지로 생성
+# 꿈 장면을 이미지로 생성 (자동으로 최신 꿈 내용 사용)
 curl -X POST "http://localhost:3000/chat/messages/generate-image" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "dreamContent": "하늘을 날면서 바다 위의 큰 고래를 보는 장면",
-    "style": "mystical"
-  }'
+  -H "Authorization: Bearer $TOKEN"
 ```
 
-**예상 결과**: DALL-E가 생성한 꿈 이미지 URL을 받습니다.
+**예상 결과**: DALL-E가 생성한 꿈 이미지 URL을 받습니다. 방금 전 입력한 꿈 내용을 자동으로 사용합니다.
 
 #### 6️⃣ 다양한 봇 성격 테스트
 ```bash

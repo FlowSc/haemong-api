@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { getSupabaseClient } from '../../config/supabase.config';
+import { getSupabaseClient, getSupabaseAdminClient } from '../../config/supabase.config';
 import { Message } from '../entities/message.entity';
 import { MessageType } from '../../common/enums/message-type.enum';
 import { SendMessageDto } from '../dto/send-message.dto';
@@ -90,7 +90,7 @@ export class MessageService {
       insertData.image_url = imageUrl;
     }
 
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await getSupabaseAdminClient()
       .from('messages')
       .insert([insertData])
       .select()
@@ -108,7 +108,7 @@ export class MessageService {
     limit: number = 100,
     offset: number = 0,
   ): Promise<Message[]> {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await getSupabaseAdminClient()
       .from('messages')
       .select('*')
       .eq('chat_room_id', chatRoomId)
@@ -123,7 +123,7 @@ export class MessageService {
   }
 
   async getMessageCount(chatRoomId: string): Promise<number> {
-    const { count, error } = await getSupabaseClient()
+    const { count, error } = await getSupabaseAdminClient()
       .from('messages')
       .select('*', { count: 'exact', head: true })
       .eq('chat_room_id', chatRoomId);
@@ -133,6 +133,23 @@ export class MessageService {
     }
 
     return count || 0;
+  }
+
+  async getLatestUserMessage(chatRoomId: string): Promise<Message | null> {
+    const { data, error } = await getSupabaseAdminClient()
+      .from('messages')
+      .select('*')
+      .eq('chat_room_id', chatRoomId)
+      .eq('type', 'user')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to get latest user message: ${error.message}`);
+    }
+
+    return data ? this.mapSupabaseMessageToEntity(data) : null;
   }
 
   async initializeChatRoom(
@@ -165,26 +182,22 @@ export class MessageService {
     userId: string,
     generateImageDto: GenerateImageDto,
   ): Promise<ImageGenerationResponseDto> {
-    const { messageId } = generateImageDto;
-
-    // Get message and verify ownership
-    const message = await this.getMessageById(messageId);
-    if (!message) {
+    // Get today's chat room for the user
+    const chatRoom = await this.chatRoomService.getTodaysChatRoom(userId);
+    if (!chatRoom) {
       return {
         success: false,
-        message: '메시지를 찾을 수 없습니다.',
+        message: '오늘의 채팅방을 찾을 수 없습니다.',
         isPremium: false,
       };
     }
 
-    // Verify chat room ownership
-    const chatRoom = await this.chatRoomService.findChatRoomById(
-      message.chatRoomId,
-    );
-    if (chatRoom.userId !== userId) {
+    // Get latest user message (dream content)
+    const latestUserMessage = await this.getLatestUserMessage(chatRoom.id);
+    if (!latestUserMessage) {
       return {
         success: false,
-        message: '접근 권한이 없습니다.',
+        message: '해몽할 꿈 내용을 찾을 수 없습니다. 먼저 꿈을 입력해주세요.',
         isPremium: false,
       };
     }
@@ -205,13 +218,13 @@ export class MessageService {
     // Generate image for premium users
     try {
       const imageUrl = await this.aiService.generateDreamImageUrl(
-        message.content,
+        latestUserMessage.content,
         chatRoom.botSettings,
       );
 
       if (imageUrl) {
-        // Update message with generated image
-        await this.updateMessageImage(messageId, imageUrl);
+        // Update the latest user message with generated image
+        await this.updateMessageImage(latestUserMessage.id, imageUrl);
 
         return {
           success: true,
@@ -237,7 +250,7 @@ export class MessageService {
   }
 
   private async getMessageById(messageId: string): Promise<Message | null> {
-    const { data, error } = await getSupabaseClient()
+    const { data, error } = await getSupabaseAdminClient()
       .from('messages')
       .select('*')
       .eq('id', messageId)
@@ -254,7 +267,7 @@ export class MessageService {
     messageId: string,
     imageUrl: string,
   ): Promise<void> {
-    const { error } = await getSupabaseClient()
+    const { error } = await getSupabaseAdminClient()
       .from('messages')
       .update({ image_url: imageUrl })
       .eq('id', messageId);
@@ -286,7 +299,7 @@ export class MessageService {
     try {
       // 채팅방 정보 및 봇 설정 가져오기
       const chatRoom = await this.chatRoomService.findChatRoomById(chatRoomId);
-      
+
       // 1. 실제 영상 생성 (URL 반환)
       const videoUrl = await this.videoGenerationService.generateDreamVideo(
         generateVideoDto.dreamContent,
@@ -318,7 +331,9 @@ export class MessageService {
       return response;
     } catch (error) {
       console.error('꿈 영상 생성 중 오류:', error);
-      throw new Error('꿈 영상 생성에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      throw new Error(
+        '꿈 영상 생성에 실패했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 
@@ -357,7 +372,7 @@ export class MessageService {
     videoData: VideoGenerationResponseDto,
   ): Promise<void> {
     try {
-      const { error } = await getSupabaseClient()
+      const { error } = await getSupabaseAdminClient()
         .from('videos')
         .insert([
           {
