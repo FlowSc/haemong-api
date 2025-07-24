@@ -300,24 +300,32 @@ export class MessageService {
       // 채팅방 정보 및 봇 설정 가져오기
       const chatRoom = await this.chatRoomService.findChatRoomById(chatRoomId);
 
+      // 최신 사용자 메시지에서 꿈 내용 가져오기
+      const latestUserMessage = await this.getLatestUserMessage(chatRoomId);
+      if (!latestUserMessage) {
+        throw new Error('해몽할 꿈 내용을 찾을 수 없습니다. 먼저 꿈을 입력해주세요.');
+      }
+
+      const dreamContent = latestUserMessage.content;
+
       // 1. 실제 영상 생성 (URL 반환)
       const videoUrl = await this.videoGenerationService.generateDreamVideo(
-        generateVideoDto.dreamContent,
+        dreamContent,
         chatRoom.botSettings,
       );
 
       // 2. 꿈 해몽 해석 생성
       const interpretation = await this.generateDreamInterpretation(
-        generateVideoDto.dreamContent,
+        dreamContent,
         chatRoom.botSettings,
       );
 
       // 3. 응답 데이터 구성
       const response: VideoGenerationResponseDto = {
         videoUrl,
-        title: this.generateVideoTitle(generateVideoDto.dreamContent),
+        title: this.generateVideoTitle(dreamContent),
         interpretation,
-        dreamContent: generateVideoDto.dreamContent,
+        dreamContent,
         style: {
           gender: chatRoom.botSettings.gender,
           approach: chatRoom.botSettings.style,

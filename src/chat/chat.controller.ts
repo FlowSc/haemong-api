@@ -197,10 +197,9 @@ export class ChatController {
     };
   }
 
-  @Post('messages/generate-video')
+  @Post('rooms/today/messages/generate-video')
   async generateDreamVideo(
     @Req() req: Request,
-    @Body() generateVideoDto: GenerateVideoDto,
   ): Promise<VideoGenerationResponseDto> {
     const userId = req.user!.id;
 
@@ -215,7 +214,7 @@ export class ChatController {
     return this.messageService.generateDreamVideo(
       userId,
       chatRoom.id,
-      generateVideoDto,
+      {},
     );
   }
 }

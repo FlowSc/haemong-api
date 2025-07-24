@@ -168,7 +168,7 @@ POST   /chat/rooms/:id/messages    # Send message
 GET    /chat/rooms/:id/messages    # Get chat history
 PUT    /chat/rooms/:id/bot-settings # Update bot personality
 POST   /chat/rooms/today/messages/generate-image # Generate dream image
-POST   /chat/messages/generate-video # Generate dream video (Premium only)
+POST   /chat/rooms/today/messages/generate-video # Generate dream video (Premium only)
 GET    /chat/bot-settings/options   # Get available bot options
 ```
 
@@ -231,11 +231,9 @@ POST /chat/rooms/today/messages/generate-image
 
 ### Video Shorts Generation (Premium Only)
 ```javascript
-// Generate 10-second dream video directly
-POST /chat/messages/generate-video
-{
-  "dreamContent": "어제 꿈에서 하늘을 자유롭게 날아다녔어요. 구름 위를 날면서 정말 기분이 좋았습니다."
-}
+// Generate 10-second dream video (automatically uses latest dream content from today's chat)
+POST /chat/rooms/today/messages/generate-video
+// No body required - automatically uses the most recent dream from today's chat room
 
 // Response includes direct 10-second video URL and interpretation
 {
@@ -378,13 +376,9 @@ curl -X POST "http://localhost:3000/chat/rooms/$ROOM_ID/messages" \
 
 #### 7️⃣ 프리미엄 기능 - 비디오 쇼츠 생성 테스트
 ```bash
-# 꿈 비디오 쇼츠 생성 (프리미엄 기능)
-curl -X POST "http://localhost:3000/chat/messages/generate-video" \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "dreamContent": "어제 꿈에서 하늘을 자유롭게 날아다녔어요. 구름 위를 날면서 정말 기분이 좋았습니다."
-  }'
+# 꿈 비디오 쇼츠 생성 (프리미엄 기능, 자동으로 오늘의 채팅방에서 최신 꿈 내용 사용)
+curl -X POST "http://localhost:3000/chat/rooms/today/messages/generate-video" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 **예상 결과**: 10초 길이의 꿈 비디오 URL과 해몽이 포함된 응답을 받습니다.

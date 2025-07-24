@@ -1,8 +1,3 @@
-import { IsString, IsNotEmpty, MaxLength } from 'class-validator';
-
 export class GenerateVideoDto {
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(1000)
-  dreamContent: string;
+  // dreamContent 제거 - 현재 채팅방의 최신 꿈 내용을 자동으로 사용
 }
