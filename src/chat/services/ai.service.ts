@@ -8,6 +8,8 @@ import { BotSettings } from '../entities/bot-settings.entity';
 import { BotGender } from '../../common/enums/bot-gender.enum';
 import { BotStyle } from '../../common/enums/bot-style.enum';
 import { ImageGenerationService } from './image-generation.service';
+import { Message } from '../entities/message.entity';
+import { MessageType } from '../../common/enums/message-type.enum';
 
 @Injectable()
 export class AiService {
@@ -22,29 +24,56 @@ export class AiService {
   async generateDreamInterpretation(
     dreamContent: string,
     botSettings: BotSettings,
+    conversationHistory: Message[] = [],
   ): Promise<string> {
     try {
       const systemPrompt = getDreamInterpretationPrompt(
         botSettings.gender,
         botSettings.style,
       );
+      
+      // 대화 히스토리를 OpenAI 메시지 형식으로 변환
+      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+        {
+          role: 'system',
+          content: systemPrompt,
+        },
+      ];
+
+      // 이전 대화 내용 추가 (최근 8개 메시지)
+      for (const message of conversationHistory) {
+        if (message.type === MessageType.USER) {
+          messages.push({
+            role: 'user',
+            content: message.content,
+          });
+        } else if (message.type === MessageType.BOT) {
+          // 봇 메시지에서 프리미엄 관련 텍스트 제거
+          const cleanContent = message.content
+            .replace(/\n\n🎨 \*\*이미지 생성 가능\*\*[\s\S]*$/g, '')
+            .replace(/\n\n💎 \*\*프리미엄 기능 - 이미지 생성\*\*[\s\S]*$/g, '')
+            .trim();
+          
+          messages.push({
+            role: 'assistant',
+            content: cleanContent,
+          });
+        }
+      }
+
+      // 현재 꿈 내용 추가
       const userPrompt = DREAM_ANALYSIS_TEMPLATE.replace(
         '{dream_content}',
         dreamContent,
       );
+      messages.push({
+        role: 'user',
+        content: userPrompt,
+      });
 
       const completion = await this.openai.chat.completions.create({
         model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt,
-          },
-          {
-            role: 'user',
-            content: userPrompt,
-          },
-        ],
+        messages,
         max_tokens: 1000,
         temperature: 0.7,
       });

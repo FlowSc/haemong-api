@@ -4,7 +4,7 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class StorageService implements OnModuleInit {
-  private readonly bucketName = 'dream-images';
+  private readonly bucketName = 'generate-images';
 
   async onModuleInit() {
     // 모듈 초기화 시 버킷 생성

@@ -166,7 +166,10 @@ export class ChatController {
 
     const updatedChatRoom = await this.chatRoomService.updateBotSettings(
       roomId,
-      updateBotSettingsDto.botSettings,
+      {
+        gender: updateBotSettingsDto.gender,
+        style: updateBotSettingsDto.style,
+      },
     );
 
     return { chatRoom: updatedChatRoom };

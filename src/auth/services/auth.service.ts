@@ -71,11 +71,21 @@ export class AuthService {
     const { email, password } = loginDto;
 
     const user = await this.findUserByEmail(email);
-    if (!user || user.provider !== AuthProvider.EMAIL) {
+    if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password || '');
+    // OAuth 사용자가 이메일/비밀번호로 로그인하려는 경우
+    if (user.provider !== AuthProvider.EMAIL) {
+      throw new UnauthorizedException(`This account was registered with ${user.provider}. Please use ${user.provider} login.`);
+    }
+
+    // 비밀번호가 없는 경우 (데이터 무결성 문제)
+    if (!user.password) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -135,17 +145,29 @@ export class AuthService {
   }
 
   async findUserByEmail(email: string): Promise<User | null> {
-    const { data, error } = await getSupabaseAdminClient()
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .single();
+    try {
+      const { data, error } = await getSupabaseAdminClient()
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
 
-    if (error && error.code !== 'PGRST116') {
-      throw new Error(`Failed to find user: ${error.message}`);
+      if (error) {
+        // PGRST116은 "no rows returned" 에러 코드
+        if (error.code === 'PGRST116') {
+          return null;
+        }
+        throw new Error(`Failed to find user: ${error.message}`);
+      }
+
+      return data ? this.mapSupabaseUserToEntity(data) : null;
+    } catch (error) {
+      // Supabase 연결 문제 등을 처리
+      if (error.message?.includes('Supabase URL and service role key are required')) {
+        throw new Error('Database configuration error. Please check environment variables.');
+      }
+      throw error;
     }
-
-    return data ? this.mapSupabaseUserToEntity(data) : null;
   }
 
   async findUserByProviderAndId(

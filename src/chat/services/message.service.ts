@@ -40,10 +40,14 @@ export class MessageService {
       sendMessageDto.content,
     );
 
-    // Generate AI response only (no automatic image generation)
+    // Get recent conversation history for context
+    const recentMessages = await this.getRecentMessagesForContext(chatRoomId, 8);
+
+    // Generate AI response with conversation context
     const aiResponse = await this.aiService.generateDreamInterpretation(
       sendMessageDto.content,
       chatRoom.botSettings,
+      recentMessages,
     );
 
     // Check if user is premium for image generation button
@@ -120,6 +124,27 @@ export class MessageService {
     }
 
     return data.map((message) => this.mapSupabaseMessageToEntity(message));
+  }
+
+  async getRecentMessagesForContext(
+    chatRoomId: string,
+    limit: number = 10,
+  ): Promise<Message[]> {
+    const { data, error } = await getSupabaseAdminClient()
+      .from('messages')
+      .select('*')
+      .eq('chat_room_id', chatRoomId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      throw new Error(`Failed to get recent messages: ${error.message}`);
+    }
+
+    // 시간 순서대로 정렬 (가장 오래된 메시지부터)
+    return data
+      .reverse()
+      .map((message) => this.mapSupabaseMessageToEntity(message));
   }
 
   async getMessageCount(chatRoomId: string): Promise<number> {
