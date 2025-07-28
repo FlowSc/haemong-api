@@ -67,11 +67,11 @@ export class VideoGenerationService {
           input: {
             prompt: prompt,
             video_length: 100, // 4k+1 format (약 5.4초 at 24fps)
-            width: 480,        // 9:16 비율에 가까운 세로형
-            height: 850,      // 9:16 비율
+            width: 480, // 9:16 비율에 가까운 세로형
+            height: 850, // 9:16 비율
             fps: 24,
             infer_steps: 50,
-            embedded_guidance_scale: 6
+            embedded_guidance_scale: 6,
           },
         },
       );
@@ -127,7 +127,7 @@ export class VideoGenerationService {
             num_frames: 24,
             num_inference_steps: 50,
             guidance_scale: 17.5,
-            model: 'xl'
+            model: 'xl',
           },
         },
       );

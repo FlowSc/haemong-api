@@ -9,12 +9,17 @@ import * as dotenv from 'dotenv';
 
 import { createWinstonConfig } from './config/logger.config';
 import { createCorsConfig, createHelmetConfig } from './config/security.config';
-import { getEnvironmentConfig, validateEnvironmentConfig, Environment } from './config/environment.config';
+import {
+  getEnvironmentConfig,
+  validateEnvironmentConfig,
+  Environment,
+} from './config/environment.config';
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 // Load environment-specific config
-const nodeEnv = process.env.NODE_ENV as Environment || Environment.DEVELOPMENT;
+const nodeEnv =
+  (process.env.NODE_ENV as Environment) || Environment.DEVELOPMENT;
 const envFile = `.env.${nodeEnv}`;
 
 dotenv.config({ path: envFile });
@@ -25,7 +30,7 @@ async function bootstrap() {
   const tempApp = await NestFactory.create(AppModule, { logger: false });
   const configService = tempApp.get(ConfigService);
   const envConfig = getEnvironmentConfig(configService);
-  
+
   // Validate configuration
   try {
     validateEnvironmentConfig(envConfig);
@@ -33,14 +38,14 @@ async function bootstrap() {
     console.error('❌ Configuration validation failed:', error.message);
     process.exit(1);
   }
-  
+
   await tempApp.close();
 
   // Create logger with environment config
   const logger = WinstonModule.createLogger(
-    createWinstonConfig(envConfig.nodeEnv, envConfig.logLevel)
+    createWinstonConfig(envConfig.nodeEnv, envConfig.logLevel),
   );
-  
+
   const app = await NestFactory.create(AppModule, {
     logger,
   });
@@ -53,7 +58,7 @@ async function bootstrap() {
   if (actualEnvConfig.security.enableHelmet) {
     app.use(helmet(createHelmetConfig(actualEnvConfig)));
   }
-  
+
   if (actualEnvConfig.security.enableCors) {
     app.use(cors(createCorsConfig(actualEnvConfig)));
   }
@@ -65,7 +70,8 @@ async function bootstrap() {
         transform: true,
         whitelist: true,
         forbidNonWhitelisted: true,
-        disableErrorMessages: actualEnvConfig.nodeEnv === Environment.PRODUCTION,
+        disableErrorMessages:
+          actualEnvConfig.nodeEnv === Environment.PRODUCTION,
         validationError: {
           target: false,
           value: false,
@@ -77,7 +83,7 @@ async function bootstrap() {
   // Global filters and interceptors
   const globalExceptionFilter = app.get(GlobalExceptionFilter);
   const loggingInterceptor = app.get(LoggingInterceptor);
-  
+
   app.useGlobalFilters(globalExceptionFilter);
   app.useGlobalInterceptors(loggingInterceptor);
 
@@ -89,20 +95,26 @@ async function bootstrap() {
     res.setHeader('X-Environment', actualEnvConfig.nodeEnv);
     next();
   });
-  
+
   await app.listen(actualEnvConfig.port);
-  
+
   const appLogger = new Logger('Bootstrap');
   appLogger.log(`🚀 Application is running on port ${actualEnvConfig.port}`);
   appLogger.log(`🌍 Environment: ${actualEnvConfig.nodeEnv}`);
   appLogger.log(`📊 Log Level: ${actualEnvConfig.logLevel}`);
-  appLogger.log(`🔒 Security: Helmet(${actualEnvConfig.security.enableHelmet}), CORS(${actualEnvConfig.security.enableCors}), Validation(${actualEnvConfig.security.enableValidation})`);
-  appLogger.log(`⚡ Rate Limits: ${actualEnvConfig.rateLimit.short.limit}/sec, ${actualEnvConfig.rateLimit.medium.limit}/min`);
+  appLogger.log(
+    `🔒 Security: Helmet(${actualEnvConfig.security.enableHelmet}), CORS(${actualEnvConfig.security.enableCors}), Validation(${actualEnvConfig.security.enableValidation})`,
+  );
+  appLogger.log(
+    `⚡ Rate Limits: ${actualEnvConfig.rateLimit.short.limit}/sec, ${actualEnvConfig.rateLimit.medium.limit}/min`,
+  );
   appLogger.log(`🎯 Frontend URL: ${actualEnvConfig.frontendUrl}`);
   appLogger.log(`📝 Logging: Winston with structured logging enabled`);
-  
+
   if (actualEnvConfig.nodeEnv === Environment.DEVELOPMENT) {
-    appLogger.log(`🛠️  Development mode: Enhanced logging and lenient rate limits`);
+    appLogger.log(
+      `🛠️  Development mode: Enhanced logging and lenient rate limits`,
+    );
   } else if (actualEnvConfig.nodeEnv === Environment.QA) {
     appLogger.log(`🧪 QA mode: Production-like settings with enhanced logging`);
   } else {

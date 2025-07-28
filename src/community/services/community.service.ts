@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { getSupabaseAdminClient } from '../../config/supabase.config';
 import { Post } from '../entities/post.entity';
 import { Comment } from '../entities/comment.entity';
@@ -8,11 +12,16 @@ import { PostListQueryDto } from '../dto/post-list.dto';
 
 @Injectable()
 export class CommunityService {
-  async createPost(userId: string, createPostDto: CreatePostDto): Promise<Post> {
+  async createPost(
+    userId: string,
+    createPostDto: CreatePostDto,
+  ): Promise<Post> {
     // 채팅룸에서 해몽 데이터 가져오기
-    const { data: chatRoom, error: chatRoomError } = await getSupabaseAdminClient()
-      .from('chat_rooms')
-      .select(`
+    const { data: chatRoom, error: chatRoomError } =
+      await getSupabaseAdminClient()
+        .from('chat_rooms')
+        .select(
+          `
         *,
         messages!inner(
           id,
@@ -26,18 +35,19 @@ export class CommunityService {
           bot_gender,
           bot_style
         )
-      `)
-      .eq('id', createPostDto.chatRoomId)
-      .eq('user_id', userId)
-      .single();
+      `,
+        )
+        .eq('id', createPostDto.chatRoomId)
+        .eq('user_id', userId)
+        .single();
 
     if (chatRoomError || !chatRoom) {
       throw new NotFoundException('채팅룸을 찾을 수 없습니다');
     }
 
     // 사용자 메시지(꿈 내용)와 봇 메시지(해몽 내용) 분리
-    const userMessage = chatRoom.messages.find(m => !m.bot_message);
-    const botMessage = chatRoom.messages.find(m => m.bot_message);
+    const userMessage = chatRoom.messages.find((m) => !m.bot_message);
+    const botMessage = chatRoom.messages.find((m) => m.bot_message);
 
     if (!userMessage || !botMessage) {
       throw new ForbiddenException('완성된 해몽이 없는 채팅룸입니다');
@@ -46,7 +56,8 @@ export class CommunityService {
     const generatedImage = chatRoom.generated_images?.[0];
 
     // 제목 자동 생성 (꿈 내용 요약)
-    const autoTitle = createPostDto.title || this.generateTitleFromDream(userMessage.content);
+    const autoTitle =
+      createPostDto.title || this.generateTitleFromDream(userMessage.content);
 
     // 게시글 생성
     const { data: post, error } = await getSupabaseAdminClient()
@@ -76,19 +87,24 @@ export class CommunityService {
     return this.mapSupabasePostToEntity(post);
   }
 
-  async getPosts(queryDto: PostListQueryDto, currentUserId?: string): Promise<{
+  async getPosts(
+    queryDto: PostListQueryDto,
+    currentUserId?: string,
+  ): Promise<{
     posts: Post[];
     hasMore: boolean;
     nextCursor?: string;
   }> {
     let query = getSupabaseAdminClient()
       .from('posts')
-      .select(`
+      .select(
+        `
         *,
         users!inner(id, nickname, profile_image_url),
         likes!left(user_id),
         bookmarks!left(user_id)
-      `)
+      `,
+      )
       .eq('is_public', true);
 
     // 필터링
@@ -105,7 +121,9 @@ export class CommunityService {
     }
 
     if (queryDto.search) {
-      query = query.or(`dream_content.ilike.%${queryDto.search}%,interpretation_content.ilike.%${queryDto.search}%`);
+      query = query.or(
+        `dream_content.ilike.%${queryDto.search}%,interpretation_content.ilike.%${queryDto.search}%`,
+      );
     }
 
     // 정렬
@@ -116,7 +134,10 @@ export class CommunityService {
       case 'trending':
         // 최근 24시간 내 좋아요가 많은 순
         query = query
-          .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+          .gte(
+            'created_at',
+            new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          )
           .order('likes_count', { ascending: false });
         break;
       default:
@@ -139,21 +160,27 @@ export class CommunityService {
 
     const hasMore = posts.length > limit;
     const resultPosts = hasMore ? posts.slice(0, -1) : posts;
-    const nextCursor = hasMore ? resultPosts[resultPosts.length - 1].created_at : undefined;
+    const nextCursor = hasMore
+      ? resultPosts[resultPosts.length - 1].created_at
+      : undefined;
 
-    const mappedPosts = resultPosts.map(post => {
+    const mappedPosts = resultPosts.map((post) => {
       const mappedPost = this.mapSupabasePostToEntity(post);
       mappedPost.user = {
         id: post.users.id,
         nickname: post.users.nickname,
         profileImageUrl: post.users.profile_image_url,
       };
-      
+
       if (currentUserId) {
-        mappedPost.isLikedByCurrentUser = post.likes.some(like => like.user_id === currentUserId);
-        mappedPost.isBookmarkedByCurrentUser = post.bookmarks.some(bookmark => bookmark.user_id === currentUserId);
+        mappedPost.isLikedByCurrentUser = post.likes.some(
+          (like) => like.user_id === currentUserId,
+        );
+        mappedPost.isBookmarkedByCurrentUser = post.bookmarks.some(
+          (bookmark) => bookmark.user_id === currentUserId,
+        );
       }
-      
+
       return mappedPost;
     });
 
@@ -167,12 +194,14 @@ export class CommunityService {
   async getPostById(postId: string, currentUserId?: string): Promise<Post> {
     const { data: post, error } = await getSupabaseAdminClient()
       .from('posts')
-      .select(`
+      .select(
+        `
         *,
         users!inner(id, nickname, profile_image_url),
         likes!left(user_id),
         bookmarks!left(user_id)
-      `)
+      `,
+      )
       .eq('id', postId)
       .single();
 
@@ -191,14 +220,21 @@ export class CommunityService {
     };
 
     if (currentUserId) {
-      mappedPost.isLikedByCurrentUser = post.likes.some(like => like.user_id === currentUserId);
-      mappedPost.isBookmarkedByCurrentUser = post.bookmarks.some(bookmark => bookmark.user_id === currentUserId);
+      mappedPost.isLikedByCurrentUser = post.likes.some(
+        (like) => like.user_id === currentUserId,
+      );
+      mappedPost.isBookmarkedByCurrentUser = post.bookmarks.some(
+        (bookmark) => bookmark.user_id === currentUserId,
+      );
     }
 
     return mappedPost;
   }
 
-  async toggleLike(postId: string, userId: string): Promise<{ isLiked: boolean; likesCount: number }> {
+  async toggleLike(
+    postId: string,
+    userId: string,
+  ): Promise<{ isLiked: boolean; likesCount: number }> {
     // 기존 좋아요 확인
     const { data: existingLike } = await getSupabaseAdminClient()
       .from('likes')
@@ -233,7 +269,10 @@ export class CommunityService {
     };
   }
 
-  async toggleBookmark(postId: string, userId: string): Promise<{ isBookmarked: boolean }> {
+  async toggleBookmark(
+    postId: string,
+    userId: string,
+  ): Promise<{ isBookmarked: boolean }> {
     const { data: existingBookmark } = await getSupabaseAdminClient()
       .from('bookmarks')
       .select('id')
@@ -259,8 +298,9 @@ export class CommunityService {
 
   private async incrementViewCount(postId: string): Promise<void> {
     // Supabase에서는 SQL 함수를 사용하여 카운트 증가
-    await getSupabaseAdminClient()
-      .rpc('increment_view_count', { post_id: postId });
+    await getSupabaseAdminClient().rpc('increment_view_count', {
+      post_id: postId,
+    });
   }
 
   private generateTitleFromDream(dreamContent: string): string {
@@ -268,11 +308,11 @@ export class CommunityService {
     const cleanedContent = dreamContent.replace(/[^\w\s가-힣]/g, '').trim();
     const words = cleanedContent.split(/\s+/).slice(0, 8); // 첫 8단어만 사용
     let title = words.join(' ');
-    
+
     if (title.length > 50) {
       title = title.substring(0, 47) + '...';
     }
-    
+
     return title || '내 꿈 이야기';
   }
 

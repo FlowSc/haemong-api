@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { getSupabaseClient, getSupabaseAdminClient } from '../../config/supabase.config';
+import {
+  getSupabaseClient,
+  getSupabaseAdminClient,
+} from '../../config/supabase.config';
 import { Message } from '../entities/message.entity';
 import { MessageType } from '../../common/enums/message-type.enum';
 import { SendMessageDto } from '../dto/send-message.dto';
@@ -41,7 +44,10 @@ export class MessageService {
     );
 
     // Get recent conversation history for context
-    const recentMessages = await this.getRecentMessagesForContext(chatRoomId, 8);
+    const recentMessages = await this.getRecentMessagesForContext(
+      chatRoomId,
+      8,
+    );
 
     // Generate AI response with conversation context
     const aiResponse = await this.aiService.generateDreamInterpretation(
@@ -259,7 +265,9 @@ export class MessageService {
 
     // Get latest bot message (interpretation content)
     const latestBotMessage = await this.getLatestBotMessage(chatRoom.id);
-    const interpretationContent = latestBotMessage ? latestBotMessage.content : '';
+    const interpretationContent = latestBotMessage
+      ? latestBotMessage.content
+      : '';
 
     // Generate image for premium users
     try {
@@ -273,14 +281,20 @@ export class MessageService {
       );
 
       if (imageUrl) {
-        // Update the latest user message with generated image
-        await this.updateMessageImage(latestUserMessage.id, imageUrl);
+        // Create a new bot message with the generated image
+        const imageMessage = await this.createMessage(
+          chatRoom.id,
+          MessageType.BOT,
+          '꿈의 이미지를 생성했습니다.',
+          imageUrl,
+        );
 
         return {
           success: true,
           imageUrl,
           message: '이미지가 성공적으로 생성되었습니다.',
           isPremium: true,
+          imageMessage, // Include the created message in response
         };
       } else {
         return {
@@ -299,33 +313,6 @@ export class MessageService {
     }
   }
 
-  private async getMessageById(messageId: string): Promise<Message | null> {
-    const { data, error } = await getSupabaseAdminClient()
-      .from('messages')
-      .select('*')
-      .eq('id', messageId)
-      .single();
-
-    if (error || !data) {
-      return null;
-    }
-
-    return this.mapSupabaseMessageToEntity(data);
-  }
-
-  private async updateMessageImage(
-    messageId: string,
-    imageUrl: string,
-  ): Promise<void> {
-    const { error } = await getSupabaseAdminClient()
-      .from('messages')
-      .update({ image_url: imageUrl })
-      .eq('id', messageId);
-
-    if (error) {
-      throw new Error(`Failed to update message image: ${error.message}`);
-    }
-  }
 
   private mapSupabaseMessageToEntity(data: any): Message {
     return {
@@ -344,7 +331,7 @@ export class MessageService {
   async generateDreamVideo(
     userId: string,
     chatRoomId: string,
-    generateVideoDto: GenerateVideoDto,
+    generateVideoDto: GenerateVideoDto, // eslint-disable-line @typescript-eslint/no-unused-vars
   ): Promise<VideoGenerationResponseDto> {
     try {
       // 채팅방 정보 및 봇 설정 가져오기
@@ -353,7 +340,9 @@ export class MessageService {
       // 최신 사용자 메시지에서 꿈 내용 가져오기
       const latestUserMessage = await this.getLatestUserMessage(chatRoomId);
       if (!latestUserMessage) {
-        throw new Error('해몽할 꿈 내용을 찾을 수 없습니다. 먼저 꿈을 입력해주세요.');
+        throw new Error(
+          '해몽할 꿈 내용을 찾을 수 없습니다. 먼저 꿈을 입력해주세요.',
+        );
       }
 
       const dreamContent = latestUserMessage.content;
@@ -407,7 +396,7 @@ export class MessageService {
    */
   private async generateDreamInterpretation(
     dreamContent: string,
-    botSettings: any,
+    botSettings: any, // eslint-disable-line @typescript-eslint/no-unused-vars
   ): Promise<string> {
     // VideoGenerationService의 해석 로직 재사용 또는 간단한 해석 생성
     return `${dreamContent}에 대한 꿈 해몽: 이 꿈은 당신의 내면 세계와 현재 상황을 반영합니다.`;

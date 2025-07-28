@@ -19,7 +19,8 @@
       "WebFetch(domain:replicate.com)",
       "Bash(find:*)",
       "Bash(git reset:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(git rm:*)"
     ],
     "deny": []
   }

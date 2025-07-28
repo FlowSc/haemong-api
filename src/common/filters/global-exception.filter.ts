@@ -27,7 +27,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
   constructor(
-    @Inject(WINSTON_MODULE_PROVIDER) private readonly winstonLogger: WinstonLogger,
+    @Inject(WINSTON_MODULE_PROVIDER)
+    private readonly winstonLogger: WinstonLogger,
   ) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
@@ -47,7 +48,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
-      
+
       if (typeof exceptionResponse === 'object') {
         message = (exceptionResponse as any).message || exception.message;
         error = (exceptionResponse as any).error || exception.name;
@@ -122,7 +123,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   private sanitizeRequestBody(body: any): any {
     if (!body) return body;
 
-    const sensitiveFields = ['password', 'token', 'secret', 'key', 'authorization'];
+    const sensitiveFields = [
+      'password',
+      'token',
+      'secret',
+      'key',
+      'authorization',
+    ];
     const sanitized = { ...body };
 
     for (const field of sensitiveFields) {

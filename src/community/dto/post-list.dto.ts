@@ -1,4 +1,12 @@
-import { IsOptional, IsNumber, IsString, Min, Max, IsArray, IsEnum } from 'class-validator';
+import {
+  IsOptional,
+  IsNumber,
+  IsString,
+  Min,
+  Max,
+  IsArray,
+  IsEnum,
+} from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { BotGender } from '../../common/enums/bot-gender.enum';
 import { BotStyle } from '../../common/enums/bot-style.enum';
@@ -28,7 +36,9 @@ export class PostListQueryDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @Transform(({ value }) => typeof value === 'string' ? value.split(',') : value)
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.split(',') : value,
+  )
   tags?: string[];
 
   @IsOptional()

@@ -91,10 +91,10 @@ export class ChatRoomService {
           console.log(
             'Duplicate key error detected, trying to find existing room...',
           );
-          
+
           // 잠시 대기 후 재조회 (다른 요청이 완료될 시간을 줌)
           await new Promise((resolve) => setTimeout(resolve, 50));
-          
+
           const existingRoom = await this.findChatRoomByUserAndDate(
             userId,
             today,
@@ -106,10 +106,13 @@ export class ChatRoomService {
             );
             return existingRoom;
           }
-          
+
           // 혹시 Admin 권한으로 다시 시도해보기
           console.log('Trying with admin client...');
-          const adminRoom = await this.findChatRoomByUserAndDateWithAdmin(userId, today);
+          const adminRoom = await this.findChatRoomByUserAndDateWithAdmin(
+            userId,
+            today,
+          );
           if (adminRoom) {
             console.log('Found room with admin client:', adminRoom.id);
             return adminRoom;
@@ -190,23 +193,25 @@ export class ChatRoomService {
     }
 
     // Get bot_settings_id from bot_settings table
-    let { data: botSettingsData, error: botSettingsError } = await getSupabaseAdminClient()
-      .from('bot_settings')
-      .select('id')
-      .eq('gender', botSettings.gender)
-      .eq('style', botSettings.style)
-      .single();
+    let { data: botSettingsData, error: botSettingsError } =
+      await getSupabaseAdminClient()
+        .from('bot_settings')
+        .select('id')
+        .eq('gender', botSettings.gender)
+        .eq('style', botSettings.style)
+        .single();
 
     if (botSettingsError) {
       console.error('Failed to find bot settings:', botSettingsError);
       // Try to get default bot settings (male, eastern)
-      const { data: defaultBotSettings, error: defaultError } = await getSupabaseAdminClient()
-        .from('bot_settings')
-        .select('id')
-        .eq('gender', 'male')
-        .eq('style', 'eastern')
-        .single();
-      
+      const { data: defaultBotSettings, error: defaultError } =
+        await getSupabaseAdminClient()
+          .from('bot_settings')
+          .select('id')
+          .eq('gender', 'male')
+          .eq('style', 'eastern')
+          .single();
+
       if (defaultError) {
         throw new Error(`Failed to find bot settings: ${defaultError.message}`);
       }
@@ -236,13 +241,15 @@ export class ChatRoomService {
           is_active: true,
         },
       ])
-      .select(`
+      .select(
+        `
         *,
         bot_settings:bot_settings_id (
           gender,
           style
         )
-      `)
+      `,
+      )
       .single();
 
     if (error) {
@@ -264,13 +271,15 @@ export class ChatRoomService {
       // Admin 클라이언트로 조회 (RLS 문제 해결)
       let { data, error } = await getSupabaseAdminClient()
         .from('chat_rooms')
-        .select(`
+        .select(
+          `
           *,
           bot_settings:bot_settings_id (
             gender,
             style
           )
-        `)
+        `,
+        )
         .eq('user_id', userId)
         .eq('date', date)
         .eq('is_active', true)
@@ -281,27 +290,28 @@ export class ChatRoomService {
       // 결과가 없다면 더 넓은 범위로 조회해보기
       if (!data && (!error || error.code === 'PGRST116')) {
         console.log('Trying broader search for chat room...');
-        
-        const { data: allRooms, error: broadError } = await getSupabaseAdminClient()
-          .from('chat_rooms')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(10);
 
-        console.log('Broad search result:', { 
-          allRooms: allRooms?.map(room => ({ 
-            id: room.id, 
-            date: room.date, 
+        const { data: allRooms, error: broadError } =
+          await getSupabaseAdminClient()
+            .from('chat_rooms')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        console.log('Broad search result:', {
+          allRooms: allRooms?.map((room) => ({
+            id: room.id,
+            date: room.date,
             is_active: room.is_active,
-            created_at: room.created_at 
-          })), 
-          broadError 
+            created_at: room.created_at,
+          })),
+          broadError,
         });
 
         // 오늘 날짜와 매치하는 방 찾기
-        const todayRoom = allRooms?.find(room => 
-          room.date === date && room.is_active === true
+        const todayRoom = allRooms?.find(
+          (room) => room.date === date && room.is_active === true,
         );
 
         if (todayRoom) {
@@ -332,13 +342,15 @@ export class ChatRoomService {
   async findChatRoomById(chatRoomId: string): Promise<ChatRoom> {
     const { data, error } = await getSupabaseAdminClient()
       .from('chat_rooms')
-      .select(`
+      .select(
+        `
         *,
         bot_settings:bot_settings_id (
           gender,
           style
         )
-      `)
+      `,
+      )
       .eq('id', chatRoomId)
       .eq('is_active', true)
       .single();
@@ -356,13 +368,15 @@ export class ChatRoomService {
   ): Promise<ChatRoom[]> {
     const { data, error } = await getSupabaseAdminClient()
       .from('chat_rooms')
-      .select(`
+      .select(
+        `
         *,
         bot_settings:bot_settings_id (
           gender,
           style
         )
-      `)
+      `,
+      )
       .eq('user_id', userId)
       .eq('is_active', true)
       .order('date', { ascending: false })
@@ -372,7 +386,9 @@ export class ChatRoomService {
       throw new Error(`Failed to get user chat rooms: ${error.message}`);
     }
 
-    return await Promise.all(data.map(async (room) => await this.mapSupabaseChatRoomToEntity(room)));
+    return await Promise.all(
+      data.map(async (room) => await this.mapSupabaseChatRoomToEntity(room)),
+    );
   }
 
   async updateChatRoomTitle(
@@ -383,13 +399,15 @@ export class ChatRoomService {
       .from('chat_rooms')
       .update({ title })
       .eq('id', chatRoomId)
-      .select(`
+      .select(
+        `
         *,
         bot_settings:bot_settings_id (
           gender,
           style
         )
-      `)
+      `,
+      )
       .single();
 
     if (error) {
@@ -415,15 +433,18 @@ export class ChatRoomService {
     botSettings: any,
   ): Promise<ChatRoom> {
     // Get bot_settings_id from bot_settings table
-    const { data: botSettingsData, error: botSettingsError } = await getSupabaseAdminClient()
-      .from('bot_settings')
-      .select('id')
-      .eq('gender', botSettings.gender)
-      .eq('style', botSettings.style)
-      .single();
+    const { data: botSettingsData, error: botSettingsError } =
+      await getSupabaseAdminClient()
+        .from('bot_settings')
+        .select('id')
+        .eq('gender', botSettings.gender)
+        .eq('style', botSettings.style)
+        .single();
 
     if (botSettingsError) {
-      throw new Error(`Failed to find bot settings: ${botSettingsError.message}`);
+      throw new Error(
+        `Failed to find bot settings: ${botSettingsError.message}`,
+      );
     }
 
     const { data, error } = await getSupabaseAdminClient()
@@ -432,13 +453,15 @@ export class ChatRoomService {
         bot_settings_id: botSettingsData.id,
       })
       .eq('id', chatRoomId)
-      .select(`
+      .select(
+        `
         *,
         bot_settings:bot_settings_id (
           gender,
           style
         )
-      `)
+      `,
+      )
       .single();
 
     if (error) {
@@ -452,7 +475,11 @@ export class ChatRoomService {
     let botSettings = { gender: BotGender.MALE, style: BotStyle.EASTERN }; // default
 
     // Check if bot_settings is already joined in the query
-    if (data.bot_settings && data.bot_settings.gender && data.bot_settings.style) {
+    if (
+      data.bot_settings &&
+      data.bot_settings.gender &&
+      data.bot_settings.style
+    ) {
       botSettings = {
         gender: data.bot_settings.gender as BotGender,
         style: data.bot_settings.style as BotStyle,
@@ -464,7 +491,7 @@ export class ChatRoomService {
         .select('gender, style')
         .eq('id', data.bot_settings_id)
         .single();
-      
+
       if (!error && botSettingsData) {
         botSettings = {
           gender: botSettingsData.gender as BotGender,

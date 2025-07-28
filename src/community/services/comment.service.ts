@@ -1,11 +1,19 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { getSupabaseAdminClient } from '../../config/supabase.config';
 import { Comment } from '../entities/comment.entity';
 import { CreateCommentDto } from '../dto/create-comment.dto';
 
 @Injectable()
 export class CommentService {
-  async createComment(postId: string, userId: string, createCommentDto: CreateCommentDto): Promise<Comment> {
+  async createComment(
+    postId: string,
+    userId: string,
+    createCommentDto: CreateCommentDto,
+  ): Promise<Comment> {
     // 게시글 존재 여부 확인
     const { data: post, error: postError } = await getSupabaseAdminClient()
       .from('posts')
@@ -23,11 +31,12 @@ export class CommentService {
 
     // 대댓글인 경우 부모 댓글 확인
     if (createCommentDto.parentCommentId) {
-      const { data: parentComment, error: parentError } = await getSupabaseAdminClient()
-        .from('comments')
-        .select('id, post_id')
-        .eq('id', createCommentDto.parentCommentId)
-        .single();
+      const { data: parentComment, error: parentError } =
+        await getSupabaseAdminClient()
+          .from('comments')
+          .select('id, post_id')
+          .eq('id', createCommentDto.parentCommentId)
+          .single();
 
       if (parentError || !parentComment || parentComment.post_id !== postId) {
         throw new NotFoundException('부모 댓글을 찾을 수 없습니다');
@@ -55,14 +64,19 @@ export class CommentService {
     return this.mapSupabaseCommentToEntity(comment);
   }
 
-  async getCommentsByPostId(postId: string, currentUserId?: string): Promise<Comment[]> {
+  async getCommentsByPostId(
+    postId: string,
+    currentUserId?: string,
+  ): Promise<Comment[]> {
     const { data: comments, error } = await getSupabaseAdminClient()
       .from('comments')
-      .select(`
+      .select(
+        `
         *,
         users!inner(id, nickname, profile_image_url),
         likes!left(user_id)
-      `)
+      `,
+      )
       .eq('post_id', postId)
       .order('created_at', { ascending: true });
 
@@ -74,7 +88,7 @@ export class CommentService {
     const commentMap = new Map<string, Comment>();
     const rootComments: Comment[] = [];
 
-    comments.forEach(commentData => {
+    comments.forEach((commentData) => {
       const comment = this.mapSupabaseCommentToEntity(commentData);
       comment.user = {
         id: commentData.users.id,
@@ -83,7 +97,9 @@ export class CommentService {
       };
 
       if (currentUserId) {
-        comment.isLikedByCurrentUser = commentData.likes.some(like => like.user_id === currentUserId);
+        comment.isLikedByCurrentUser = commentData.likes.some(
+          (like) => like.user_id === currentUserId,
+        );
       }
 
       comment.replies = [];
@@ -95,7 +111,7 @@ export class CommentService {
     });
 
     // 대댓글을 부모 댓글에 연결
-    commentMap.forEach(comment => {
+    commentMap.forEach((comment) => {
       if (comment.parentCommentId) {
         const parentComment = commentMap.get(comment.parentCommentId);
         if (parentComment && parentComment.replies) {
@@ -107,7 +123,10 @@ export class CommentService {
     return rootComments;
   }
 
-  async toggleCommentLike(commentId: string, userId: string): Promise<{ isLiked: boolean; likesCount: number }> {
+  async toggleCommentLike(
+    commentId: string,
+    userId: string,
+  ): Promise<{ isLiked: boolean; likesCount: number }> {
     // 기존 좋아요 확인
     const { data: existingLike } = await getSupabaseAdminClient()
       .from('likes')
@@ -144,11 +163,12 @@ export class CommentService {
 
   async deleteComment(commentId: string, userId: string): Promise<void> {
     // 댓글 소유자 확인
-    const { data: comment, error: commentError } = await getSupabaseAdminClient()
-      .from('comments')
-      .select('user_id')
-      .eq('id', commentId)
-      .single();
+    const { data: comment, error: commentError } =
+      await getSupabaseAdminClient()
+        .from('comments')
+        .select('user_id')
+        .eq('id', commentId)
+        .single();
 
     if (commentError || !comment) {
       throw new NotFoundException('댓글을 찾을 수 없습니다');

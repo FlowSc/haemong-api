@@ -180,10 +180,7 @@ export class ChatController {
     @Req() req: Request,
   ): Promise<ImageGenerationResponseDto> {
     const userId = req.user!.id;
-    return this.messageService.generateImageForMessage(
-      userId,
-      {},
-    );
+    return this.messageService.generateImageForMessage(userId, {});
   }
 
   @Get('bot-settings/options')
@@ -214,10 +211,6 @@ export class ChatController {
       throw new Error('쇼츠 영상 생성은 프리미엄 사용자만 이용 가능합니다.');
     }
 
-    return this.messageService.generateDreamVideo(
-      userId,
-      chatRoom.id,
-      {},
-    );
+    return this.messageService.generateDreamVideo(userId, chatRoom.id, {});
   }
 }

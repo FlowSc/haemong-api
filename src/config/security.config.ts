@@ -1,14 +1,16 @@
 import { ThrottlerModuleOptions } from '@nestjs/throttler';
 import { Environment, EnvironmentConfig } from './environment.config';
 
-export const createThrottlerConfig = (config: EnvironmentConfig): ThrottlerModuleOptions => [
+export const createThrottlerConfig = (
+  config: EnvironmentConfig,
+): ThrottlerModuleOptions => [
   {
     name: 'short',
     ttl: config.rateLimit.short.ttl,
     limit: config.rateLimit.short.limit,
   },
   {
-    name: 'medium', 
+    name: 'medium',
     ttl: config.rateLimit.medium.ttl,
     limit: config.rateLimit.medium.limit,
   },
@@ -21,7 +23,7 @@ export const createThrottlerConfig = (config: EnvironmentConfig): ThrottlerModul
 
 export const createCorsConfig = (config: EnvironmentConfig) => {
   const allowedOrigins = [config.frontendUrl];
-  
+
   // Add localhost for development
   if (config.nodeEnv === Environment.DEVELOPMENT) {
     allowedOrigins.push('http://localhost:3000', 'https://localhost:3000');

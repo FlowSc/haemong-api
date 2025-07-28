@@ -17,17 +17,18 @@ export class LoggingInterceptor implements NestInterceptor {
   private readonly logger = new Logger(LoggingInterceptor.name);
 
   constructor(
-    @Inject(WINSTON_MODULE_PROVIDER) private readonly winstonLogger: WinstonLogger,
+    @Inject(WINSTON_MODULE_PROVIDER)
+    private readonly winstonLogger: WinstonLogger,
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const request = context.switchToHttp().getRequest<Request>();
     const response = context.switchToHttp().getResponse<Response>();
-    
+
     const { method, url, body, query, params, headers } = request;
     const userAgent = headers['user-agent'] || '';
     const ip = request.ip || request.connection.remoteAddress;
-    
+
     const startTime = Date.now();
     const requestId = this.generateRequestId();
 
@@ -61,16 +62,14 @@ export class LoggingInterceptor implements NestInterceptor {
               statusCode,
               responseTime,
               responseSize: JSON.stringify(data).length,
-            }
+            },
           );
 
-          this.logger.log(
-            `${method} ${url} ${statusCode} ${responseTime}ms`
-          );
+          this.logger.log(`${method} ${url} ${statusCode} ${responseTime}ms`);
         },
         error: (error) => {
           const responseTime = Date.now() - startTime;
-          
+
           this.winstonLogger.error(
             `Request Error: ${method} ${url} - ${responseTime}ms`,
             {
@@ -78,7 +77,7 @@ export class LoggingInterceptor implements NestInterceptor {
               responseTime,
               error: error.message,
               stack: error.stack,
-            }
+            },
           );
         },
       }),
@@ -92,7 +91,13 @@ export class LoggingInterceptor implements NestInterceptor {
   private sanitizeRequestBody(body: any): any {
     if (!body) return body;
 
-    const sensitiveFields = ['password', 'token', 'secret', 'key', 'authorization'];
+    const sensitiveFields = [
+      'password',
+      'token',
+      'secret',
+      'key',
+      'authorization',
+    ];
     const sanitized = { ...body };
 
     for (const field of sensitiveFields) {

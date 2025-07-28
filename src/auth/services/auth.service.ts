@@ -77,7 +77,9 @@ export class AuthService {
 
     // OAuth 사용자가 이메일/비밀번호로 로그인하려는 경우
     if (user.provider !== AuthProvider.EMAIL) {
-      throw new UnauthorizedException(`This account was registered with ${user.provider}. Please use ${user.provider} login.`);
+      throw new UnauthorizedException(
+        `This account was registered with ${user.provider}. Please use ${user.provider} login.`,
+      );
     }
 
     // 비밀번호가 없는 경우 (데이터 무결성 문제)
@@ -163,8 +165,14 @@ export class AuthService {
       return data ? this.mapSupabaseUserToEntity(data) : null;
     } catch (error) {
       // Supabase 연결 문제 등을 처리
-      if (error.message?.includes('Supabase URL and service role key are required')) {
-        throw new Error('Database configuration error. Please check environment variables.');
+      if (
+        error.message?.includes(
+          'Supabase URL and service role key are required',
+        )
+      ) {
+        throw new Error(
+          'Database configuration error. Please check environment variables.',
+        );
       }
       throw error;
     }
@@ -226,11 +234,9 @@ export class AuthService {
     const user = await this.findUserById(userId);
     if (!user) return false;
 
-
     if (user.subscriptionStatus === SubscriptionStatus.PREMIUM) {
-
       console.log(user);
-      
+
       // 프리미엄 만료일 확인
       if (user.premiumExpiresAt && user.premiumExpiresAt > new Date()) {
         return true;
@@ -301,7 +307,8 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
-    const isAvailable = await this.nicknameService.checkNicknameAvailability(nickname);
+    const isAvailable =
+      await this.nicknameService.checkNicknameAvailability(nickname);
     if (!isAvailable) {
       throw new ConflictException('Nickname is already taken');
     }
@@ -383,7 +390,9 @@ export class AuthService {
       currentMonthInterpretations: currentMonthInterpretations || 0,
       isPremiumUser,
       joinedDate: user?.createdAt || new Date(),
-      lastActivityDate: lastMessage ? new Date(lastMessage.created_at) : undefined,
+      lastActivityDate: lastMessage
+        ? new Date(lastMessage.created_at)
+        : undefined,
     };
   }
 

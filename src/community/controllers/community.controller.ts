@@ -26,7 +26,10 @@ export class CommunityController {
   @UseGuards(JwtAuthGuard)
   @Post('posts')
   async createPost(@Request() req, @Body() createPostDto: CreatePostDto) {
-    const post = await this.communityService.createPost(req.user.userId, createPostDto);
+    const post = await this.communityService.createPost(
+      req.user.userId,
+      createPostDto,
+    );
     return {
       success: true,
       data: post,
@@ -37,7 +40,10 @@ export class CommunityController {
   @Get('posts')
   async getPosts(@Query() queryDto: PostListQueryDto, @Request() req?) {
     const currentUserId = req?.user?.userId;
-    const result = await this.communityService.getPosts(queryDto, currentUserId);
+    const result = await this.communityService.getPosts(
+      queryDto,
+      currentUserId,
+    );
     return {
       success: true,
       data: result,
@@ -63,7 +69,10 @@ export class CommunityController {
     @Param('postId', ParseUUIDPipe) postId: string,
     @Request() req,
   ) {
-    const result = await this.communityService.toggleLike(postId, req.user.userId);
+    const result = await this.communityService.toggleLike(
+      postId,
+      req.user.userId,
+    );
     return {
       success: true,
       data: result,
@@ -76,7 +85,10 @@ export class CommunityController {
     @Param('postId', ParseUUIDPipe) postId: string,
     @Request() req,
   ) {
-    const result = await this.communityService.toggleBookmark(postId, req.user.userId);
+    const result = await this.communityService.toggleBookmark(
+      postId,
+      req.user.userId,
+    );
     return {
       success: true,
       data: result,
@@ -108,7 +120,10 @@ export class CommunityController {
     @Request() req?,
   ) {
     const currentUserId = req?.user?.userId;
-    const comments = await this.commentService.getCommentsByPostId(postId, currentUserId);
+    const comments = await this.commentService.getCommentsByPostId(
+      postId,
+      currentUserId,
+    );
     return {
       success: true,
       data: comments,
@@ -121,7 +136,10 @@ export class CommunityController {
     @Param('commentId', ParseUUIDPipe) commentId: string,
     @Request() req,
   ) {
-    const result = await this.commentService.toggleCommentLike(commentId, req.user.userId);
+    const result = await this.commentService.toggleCommentLike(
+      commentId,
+      req.user.userId,
+    );
     return {
       success: true,
       data: result,

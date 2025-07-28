@@ -38,7 +38,7 @@ export class ImageGenerationService {
         n: 1,
         size: '1024x1024',
         quality: 'standard',
-        style: botSettings.style === BotStyle.EASTERN ? 'natural' : 'vivid',
+        style: 'natural',
       });
 
       const tempImageUrl = response.data?.[0]?.url;
@@ -51,13 +51,13 @@ export class ImageGenerationService {
         // userId나 chatRoomId가 없는 경우 임시 ID 생성
         const tempUserId = userId || 'temp-' + Date.now();
         const tempChatRoomId = chatRoomId || 'temp-' + Date.now();
-        
+
         const storageUrl = await this.storageService.uploadImageFromUrl(
           tempImageUrl,
           tempUserId,
-          tempChatRoomId
+          tempChatRoomId,
         );
-        
+
         return storageUrl || null;
       }
 
@@ -65,11 +65,13 @@ export class ImageGenerationService {
       const storageUrl = await this.storageService.uploadImageFromUrl(
         tempImageUrl,
         userId,
-        chatRoomId
+        chatRoomId,
       );
 
       if (!storageUrl) {
-        console.error('Failed to upload image to storage, returning DALL-E URL as fallback');
+        console.error(
+          'Failed to upload image to storage, returning DALL-E URL as fallback',
+        );
         return tempImageUrl; // Storage 실패 시 DALL-E URL 폴백
       }
 
@@ -97,18 +99,16 @@ export class ImageGenerationService {
     botSettings: BotSettings,
   ): string {
     const cleanedDreamContent = this.cleanDreamContent(dreamContent);
-    const cleanedInterpretation = this.cleanInterpretationContent(interpretationContent);
+    const cleanedInterpretation = this.cleanInterpretationContent(
+      interpretationContent,
+    );
     const stylePrompt = this.getStylePrompt(botSettings);
 
     console.log(cleanedDreamContent, cleanedInterpretation, stylePrompt);
-    
 
-    return `Create a dreamlike, artistic visualization in Japanese anime style based on this dream and its interpretation:
+    return `${stylePrompt}
 
-
-Interpretation: "${cleanedInterpretation}"
-
-${stylePrompt} The image should combine the literal dream imagery with the symbolic meanings from the interpretation. Focus on the emotional and spiritual significance revealed in the analysis. Use soft, ethereal lighting and dream-like atmosphere. Render in Japanese anime/manga art style with detailed character designs, vibrant colors, and expressive visual storytelling typical of anime.`;
+Interpretation: "${cleanedInterpretation}" `;
   }
 
   private cleanDreamContent(content: string): string {
@@ -128,7 +128,7 @@ ${stylePrompt} The image should combine the literal dream imagery with the symbo
 
   private cleanInterpretationContent(content: string): string {
     // AI로 요약된 해몽 내용을 그대로 사용 (이미 100자 이내로 요약됨)
-    let cleaned = content
+    const cleaned = content
       .replace(/[^\w\s가-힣.,!?]/g, '') // 특수문자 제거
       .replace(/\s+/g, ' ') // 중복 공백 제거
       .replace(/🎨.*?버튼을.*?세요!/g, '') // 이미지 생성 버튼 관련 텍스트 제거
@@ -139,16 +139,13 @@ ${stylePrompt} The image should combine the literal dream imagery with the symbo
   }
 
   private getStylePrompt(botSettings: BotSettings): string {
-    const { gender, style } = botSettings;
-
-    if (style === BotStyle.EASTERN) {
-      return `Style: Japanese anime style with traditional Korean art influence, featuring flowing lines, soft colors, and mystical elements. Incorporate symbols from Korean traditional art, nature motifs like mountains, water, and celestial elements. Use anime-style character designs with watercolor-like textures and soft gradients.`;
-    } else {
-      return `Style: Japanese anime style with Western surrealist influence, featuring bold colors and psychological symbolism. Think anime meets Carl Jung's dream analysis. Use contemporary anime art techniques with rich textures, dramatic lighting, and expressive character designs typical of modern anime.`;
-    }
+    return `일본 1990-2000년대 소년만화 스타일`;
   }
 
-  async generateWelcomeImage(botSettings: BotSettings, userId?: string): Promise<string | null> {
+  async generateWelcomeImage(
+    botSettings: BotSettings,
+    userId?: string,
+  ): Promise<string | null> {
     try {
       const welcomePrompt = this.getWelcomeImagePrompt(botSettings);
 
@@ -158,7 +155,7 @@ ${stylePrompt} The image should combine the literal dream imagery with the symbo
         n: 1,
         size: '1024x1024',
         quality: 'standard',
-        style: botSettings.style === BotStyle.EASTERN ? 'natural' : 'vivid',
+        style: 'natural',
       });
 
       const tempImageUrl = response.data?.[0]?.url;
@@ -169,13 +166,13 @@ ${stylePrompt} The image should combine the literal dream imagery with the symbo
       // Welcome 이미지도 Storage에 저장
       const tempUserId = userId || 'welcome-' + Date.now();
       const tempChatRoomId = 'welcome-' + Date.now();
-      
+
       const storageUrl = await this.storageService.uploadImageFromUrl(
         tempImageUrl,
         tempUserId,
-        tempChatRoomId
+        tempChatRoomId,
       );
-      
+
       return storageUrl || tempImageUrl; // Storage 실패 시 DALL-E URL 폴백
     } catch (error) {
       console.error('Welcome image generation error:', error);
@@ -184,20 +181,14 @@ ${stylePrompt} The image should combine the literal dream imagery with the symbo
   }
 
   private getWelcomeImagePrompt(botSettings: BotSettings): string {
-    const { gender, style } = botSettings;
+    const { gender } = botSettings;
+    const baseStyle = `Vibrant cartoon anime art style with bold colors, strong contrast, clear cel-shading, dynamic lighting, and professional animated look. Rich saturated colors and sharp clean lines.`;
 
-    if (gender === BotGender.MALE && style === BotStyle.EASTERN) {
-      return 'A wise Korean sage in traditional hanbok sitting in a serene mountain temple, surrounded by ancient books and scrolls about dream interpretation. Soft moonlight filtering through paper windows, creating a mystical atmosphere of wisdom and tranquility. Rendered in Japanese anime art style with detailed character design and expressive features.';
-    } else if (gender === BotGender.FEMALE && style === BotStyle.EASTERN) {
-      return 'A gentle Korean woman in elegant hanbok sitting by a peaceful lotus pond under starlight, with floating dream symbols like butterflies and cherry blossoms around her. Warm, nurturing atmosphere with soft traditional colors. Rendered in Japanese anime art style with beautiful character design and expressive eyes.';
-    } else if (gender === BotGender.MALE && style === BotStyle.WESTERN) {
-      return 'A professional male psychologist in a modern study filled with psychology books, sitting beside a window overlooking a cityscape at dusk. Clean, analytical environment with subtle symbolic elements representing the unconscious mind. Rendered in Japanese anime art style with detailed character design and modern setting.';
-    } else if (gender === BotGender.FEMALE && style === BotStyle.WESTERN) {
-      return 'A warm, empathetic female therapist in a cozy counseling room with soft lighting, comfortable chairs, and healing plants. Peaceful, safe environment with gentle colors that evoke trust and emotional healing. Rendered in Japanese anime art style with expressive character design and warm atmosphere.';
+    if (gender === BotGender.MALE) {
+      return `${baseStyle} A wise and confident male dream interpreter sitting in a mystical library filled with floating dream symbols, ancient books, and dramatic magical lighting. Strong facial features, large expressive eyes, determined expression, detailed robes with rich colors. Think modern anime character design with vivid backgrounds and bold, eye-catching visuals.`;
+    } else {
+      return `${baseStyle} A kind and mystical female dream interpreter surrounded by floating magical elements, glowing symbols, and dramatic moonlight. Beautiful large eyes, flowing hair with dynamic movement, confident expression, elegant clothing with vibrant colors and detailed textures. Think modern anime character design with bold, cartoon-like atmosphere.`;
     }
-
-    // 기본값
-    return 'A mystical dream interpretation scene with soft ethereal lighting and symbolic elements representing the world of dreams and subconscious. Rendered in Japanese anime art style.';
   }
 
   private async saveGeneratedImage(data: {

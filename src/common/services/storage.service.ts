@@ -11,25 +11,34 @@ export class StorageService implements OnModuleInit {
     await this.createBucketIfNotExists();
   }
 
-  async uploadImageFromUrl(imageUrl: string, userId: string, chatRoomId: string, maxRetries: number = 3): Promise<string | null> {
+  async uploadImageFromUrl(
+    imageUrl: string,
+    userId: string,
+    chatRoomId: string,
+    maxRetries: number = 3,
+  ): Promise<string | null> {
     let lastError: Error | null = null;
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`Attempting to upload image (attempt ${attempt}/${maxRetries})`);
-        
+        console.log(
+          `Attempting to upload image (attempt ${attempt}/${maxRetries})`,
+        );
+
         // DALL-E URL에서 이미지 다운로드 (30초 타임아웃)
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000);
-        
+
         const response = await fetch(imageUrl, {
           signal: controller.signal,
         });
-        
+
         clearTimeout(timeoutId);
-        
+
         if (!response.ok) {
-          throw new Error(`Failed to fetch image from URL: ${response.status} ${response.statusText}`);
+          throw new Error(
+            `Failed to fetch image from URL: ${response.status} ${response.statusText}`,
+          );
         }
 
         const contentType = response.headers.get('content-type') || 'image/png';
@@ -48,9 +57,8 @@ export class StorageService implements OnModuleInit {
         const fileName = `${userId}/${chatRoomId}/${timestamp}_${fileId}.${fileExtension}`;
 
         // Supabase Storage에 업로드
-        const { data, error } = await getSupabaseAdminClient()
-          .storage
-          .from(this.bucketName)
+        const { error } = await getSupabaseAdminClient()
+          .storage.from(this.bucketName)
           .upload(fileName, uint8Array, {
             contentType,
             cacheControl: '3600',
@@ -63,35 +71,59 @@ export class StorageService implements OnModuleInit {
 
         // 공개 URL 생성
         const { data: publicUrlData } = getSupabaseAdminClient()
-          .storage
-          .from(this.bucketName)
+          .storage.from(this.bucketName)
           .getPublicUrl(fileName);
 
         console.log(`Image uploaded successfully: ${publicUrlData.publicUrl}`);
-        
-        return publicUrlData.publicUrl;
+        console.log(`Bucket: ${this.bucketName}, FileName: ${fileName}`);
+
+        // URL 접근 테스트 및 graceful fallback
+        try {
+          const testResponse = await fetch(publicUrlData.publicUrl, {
+            method: 'HEAD',
+            signal: AbortSignal.timeout(5000), // 5초 타임아웃
+          });
+
+          if (testResponse.ok) {
+            console.log('Public URL is accessible');
+            return publicUrlData.publicUrl;
+          } else {
+            console.warn(
+              `Public URL returned ${testResponse.status}, falling back to signed URL`,
+            );
+            return await this.createSignedUrl(fileName);
+          }
+        } catch (testError) {
+          console.warn(
+            'Public URL test failed, falling back to signed URL:',
+            testError.message,
+          );
+          return await this.createSignedUrl(fileName);
+        }
       } catch (error) {
         lastError = error as Error;
         console.error(`Upload attempt ${attempt} failed:`, error);
-        
+
         if (attempt < maxRetries) {
           // 지수 백오프: 1초, 2초, 4초
           const delayMs = Math.pow(2, attempt - 1) * 1000;
           console.log(`Retrying in ${delayMs}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delayMs));
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
         }
       }
     }
-    
-    console.error(`Failed to upload image after ${maxRetries} attempts:`, lastError);
+
+    console.error(
+      `Failed to upload image after ${maxRetries} attempts:`,
+      lastError,
+    );
     return null;
   }
 
   async deleteImage(filePath: string): Promise<boolean> {
     try {
       const { error } = await getSupabaseAdminClient()
-        .storage
-        .from(this.bucketName)
+        .storage.from(this.bucketName)
         .remove([filePath]);
 
       if (error) {
@@ -109,22 +141,27 @@ export class StorageService implements OnModuleInit {
   async createBucketIfNotExists(): Promise<void> {
     try {
       // 버킷 존재 여부 확인
-      const { data: buckets, error: listError } = await getSupabaseAdminClient()
-        .storage
-        .listBuckets();
+      const { data: buckets, error: listError } =
+        await getSupabaseAdminClient().storage.listBuckets();
 
       if (listError) {
         console.error('Error listing buckets:', listError);
         return;
       }
 
-      const bucketExists = buckets?.some(bucket => bucket.name === this.bucketName);
+      console.log(
+        'Available buckets:',
+        buckets?.map((b) => b.name),
+      );
+      const bucketExists = buckets?.some(
+        (bucket) => bucket.name === this.bucketName,
+      );
+      console.log(`Bucket '${this.bucketName}' exists:`, bucketExists);
 
       if (!bucketExists) {
         // 버킷 생성 (공개 버킷으로 설정)
-        const { error: createError } = await getSupabaseAdminClient()
-          .storage
-          .createBucket(this.bucketName, {
+        const { error: createError } =
+          await getSupabaseAdminClient().storage.createBucket(this.bucketName, {
             public: true,
             allowedMimeTypes: ['image/png', 'image/jpeg', 'image/webp'],
             fileSizeLimit: 5242880, // 5MB
@@ -134,10 +171,94 @@ export class StorageService implements OnModuleInit {
           console.error('Error creating bucket:', createError);
         } else {
           console.log(`Bucket '${this.bucketName}' created successfully`);
+          // 버킷 생성 후 public access policy 설정
+          await this.setupBucketPolicies();
         }
+      } else {
+        // 기존 버킷의 설정 확인 및 정책 업데이트
+        const { data: bucketInfo, error: getError } =
+          await getSupabaseAdminClient().storage.getBucket(this.bucketName);
+
+        console.log('Bucket info:', bucketInfo);
+        if (getError) {
+          console.error('Error getting bucket info:', getError);
+        }
+
+        // 기존 버킷도 정책 확인/업데이트
+        await this.setupBucketPolicies();
       }
     } catch (error) {
       console.error('Error in createBucketIfNotExists:', error);
+    }
+  }
+
+  private async setupBucketPolicies(): Promise<void> {
+    try {
+      const client = getSupabaseAdminClient();
+
+      // Storage objects에 대한 public read access 정책 생성
+      const policyName = `public_read_${this.bucketName.replace(/-/g, '_')}`;
+
+      // SQL을 직접 실행하여 RLS 정책 생성
+      const { error: sqlError } = await client.rpc('exec_sql', {
+        sql: `
+          DO $$
+          BEGIN
+            -- Create policy if it doesn't exist
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_policies 
+              WHERE schemaname = 'storage' 
+              AND tablename = 'objects' 
+              AND policyname = '${policyName}'
+            ) THEN
+              EXECUTE format('CREATE POLICY %I ON storage.objects FOR SELECT USING (bucket_id = %L)', '${policyName}', '${this.bucketName}');
+            END IF;
+          END
+          $$;
+        `,
+      });
+
+      if (sqlError) {
+        console.log('RLS policy setup result:', sqlError.message);
+
+        // 대안: 버킷을 완전히 public으로 만들기
+        const { error: updateError } = await client.storage.updateBucket(
+          this.bucketName,
+          {
+            public: true,
+          },
+        );
+
+        if (updateError) {
+          console.error('Error updating bucket to public:', updateError);
+        } else {
+          console.log('Bucket updated to public successfully');
+        }
+      } else {
+        console.log('Storage RLS policy created successfully');
+      }
+    } catch (error) {
+      console.error('Error setting up bucket policies:', error);
+    }
+  }
+
+  private async createSignedUrl(fileName: string): Promise<string | null> {
+    try {
+      const { data: signedUrlData, error: signedError } =
+        await getSupabaseAdminClient()
+          .storage.from(this.bucketName)
+          .createSignedUrl(fileName, 3600); // 1시간 유효
+
+      if (signedError) {
+        console.error('Signed URL creation failed:', signedError);
+        return null;
+      }
+
+      console.log('Signed URL created successfully');
+      return signedUrlData.signedUrl;
+    } catch (error) {
+      console.error('Error creating signed URL:', error);
+      return null;
     }
   }
 }

@@ -31,7 +31,7 @@ export class AiService {
         botSettings.gender,
         botSettings.style,
       );
-      
+
       // 대화 히스토리를 OpenAI 메시지 형식으로 변환
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
         {
@@ -53,7 +53,7 @@ export class AiService {
             .replace(/\n\n🎨 \*\*이미지 생성 가능\*\*[\s\S]*$/g, '')
             .replace(/\n\n💎 \*\*프리미엄 기능 - 이미지 생성\*\*[\s\S]*$/g, '')
             .trim();
-          
+
           messages.push({
             role: 'assistant',
             content: cleanContent,
@@ -88,14 +88,17 @@ export class AiService {
     }
   }
 
-  async summarizeInterpretation(interpretationContent: string): Promise<string> {
+  async summarizeInterpretation(
+    interpretationContent: string,
+  ): Promise<string> {
     try {
       const completion = await this.openai.chat.completions.create({
         model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
         messages: [
           {
             role: 'system',
-            content: '해몽 내용을 이미지 생성에 적합하도록 100자 이내로 핵심 키워드와 상징적 의미만 간결하게 요약해주세요. 구체적인 시각적 요소와 감정을 포함하되, 불필요한 설명은 제거하세요.',
+            content:
+              '해몽 내용을 이미지 생성에 적합하도록 100자 이내로 핵심 키워드와 상징적 의미만 간결하게 요약해주세요. 구체적인 시각적 요소와 감정을 포함하되, 불필요한 설명은 제거하세요.',
           },
           {
             role: 'user',
@@ -121,8 +124,10 @@ export class AiService {
     chatRoomId?: string,
     isPremium = false,
   ): Promise<string | null> {
-    const summarizedInterpretation = await this.summarizeInterpretation(interpretationContent);
-    
+    const summarizedInterpretation = await this.summarizeInterpretation(
+      interpretationContent,
+    );
+
     return this.imageGenerationService.generateDreamImage(
       dreamContent,
       summarizedInterpretation,
@@ -169,7 +174,10 @@ export class AiService {
     botSettings: BotSettings,
     userId?: string,
   ): Promise<string | null> {
-    return this.imageGenerationService.generateWelcomeImage(botSettings, userId);
+    return this.imageGenerationService.generateWelcomeImage(
+      botSettings,
+      userId,
+    );
   }
 
   getDefaultBotSettings(): BotSettings {
