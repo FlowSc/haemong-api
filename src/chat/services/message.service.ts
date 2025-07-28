@@ -313,7 +313,6 @@ export class MessageService {
     }
   }
 
-
   private mapSupabaseMessageToEntity(data: any): Message {
     return {
       id: data.id,
@@ -366,8 +365,8 @@ export class MessageService {
         interpretation,
         dreamContent,
         style: {
-          gender: chatRoom.botSettings.gender,
-          approach: chatRoom.botSettings.style,
+          gender: chatRoom.botSettings.personality?.gender || 'female',
+          approach: chatRoom.botSettings.personality?.style || 'eastern',
         },
         createdAt: new Date(),
       };

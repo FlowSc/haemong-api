@@ -2,8 +2,7 @@ import { Injectable } from '@nestjs/common';
 import OpenAI from 'openai';
 const Replicate = require('replicate');
 import { BotSettings } from '../entities/bot-settings.entity';
-import { BotGender } from '../../common/enums/bot-gender.enum';
-import { BotStyle } from '../../common/enums/bot-style.enum';
+import { BotPersonality } from '../entities/bot-personality.entity';
 
 @Injectable()
 export class VideoGenerationService {
@@ -319,8 +318,8 @@ export class VideoGenerationService {
         order: index + 1,
       })),
       style: {
-        gender: botSettings.gender,
-        approach: botSettings.style,
+        gender: botSettings.personality?.gender || 'female',
+        approach: botSettings.personality?.style || 'eastern',
       },
       createdAt: new Date(),
     };
@@ -357,28 +356,36 @@ export class VideoGenerationService {
   }
 
   private getBotPersonality(botSettings: BotSettings) {
-    if (
-      botSettings.gender === BotGender.MALE &&
-      botSettings.style === BotStyle.EASTERN
-    ) {
+    const personality: BotPersonality | null = botSettings.personality || null;
+
+    if (personality) {
+      return {
+        name: personality.displayName,
+        description:
+          personality.personalityTraits.approach +
+          ' 접근법의 ' +
+          personality.displayName,
+        tone: personality.personalityTraits.tone,
+      };
+    }
+
+    // Fallback for backward compatibility
+    const gender: string = personality ? (personality as any).gender : 'female';
+    const style: string = personality ? (personality as any).style : 'eastern';
+
+    if (gender === 'male' && style === 'eastern') {
       return {
         name: '전통 해몽사',
         description: '권위있고 격식있는 해몽 전문가',
         tone: '격식있고 권위적인 어조',
       };
-    } else if (
-      botSettings.gender === BotGender.FEMALE &&
-      botSettings.style === BotStyle.EASTERN
-    ) {
+    } else if (gender === 'female' && style === 'eastern') {
       return {
         name: '따뜻한 해몽사',
         description: '어머니같이 따뜻하고 포용적인 해몽사',
         tone: '따뜻하고 친근한 어조',
       };
-    } else if (
-      botSettings.gender === BotGender.MALE &&
-      botSettings.style === BotStyle.WESTERN
-    ) {
+    } else if (gender === 'male' && style === 'western') {
       return {
         name: '심리학자',
         description: '과학적이고 논리적인 분석을 하는 전문가',
@@ -394,7 +401,8 @@ export class VideoGenerationService {
   }
 
   private getVisualStyle(botSettings: BotSettings): string {
-    if (botSettings.style === BotStyle.EASTERN) {
+    const style = botSettings.personality?.style || 'eastern';
+    if (style === 'eastern') {
       return 'traditional Korean art style, mystical, oriental atmosphere';
     } else {
       return 'modern psychological imagery, contemporary art style, western aesthetic';

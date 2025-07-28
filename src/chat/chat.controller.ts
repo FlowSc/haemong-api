@@ -18,6 +18,7 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { ChatRoomResponseDto } from './dto/chat-room-response.dto';
 import { MessageResponseDto } from './dto/message-response.dto';
 import { UpdateBotSettingsDto } from './dto/update-bot-settings.dto';
+import { BotPersonalityService } from './services/bot-personality.service';
 import { GenerateImageDto } from './dto/generate-image.dto';
 import { ImageGenerationResponseDto } from './dto/image-generation-response.dto';
 import { GenerateVideoDto } from './dto/generate-video.dto';
@@ -31,6 +32,7 @@ export class ChatController {
     private readonly chatRoomService: ChatRoomService,
     private readonly messageService: MessageService,
     private readonly videoGenerationService: VideoGenerationService,
+    private readonly botPersonalityService: BotPersonalityService,
   ) {}
 
   @Get('rooms/today')
@@ -166,10 +168,7 @@ export class ChatController {
 
     const updatedChatRoom = await this.chatRoomService.updateBotSettings(
       roomId,
-      {
-        gender: updateBotSettingsDto.gender,
-        style: updateBotSettingsDto.style,
-      },
+      updateBotSettingsDto.personalityId,
     );
 
     return { chatRoom: updatedChatRoom };
@@ -183,17 +182,19 @@ export class ChatController {
     return this.messageService.generateImageForMessage(userId, {});
   }
 
-  @Get('bot-settings/options')
-  async getBotSettingsOptions() {
+  @Get('bot-personalities')
+  async getBotPersonalities() {
+    const personalities = await this.botPersonalityService.findAll();
     return {
-      genders: [
-        { value: 'male', label: '남성' },
-        { value: 'female', label: '여성' },
-      ],
-      styles: [
-        { value: 'eastern', label: '동양풍' },
-        { value: 'western', label: '서양풍' },
-      ],
+      personalities: personalities.map((p) => ({
+        id: p.id,
+        name: p.name,
+        displayName: p.displayName,
+        gender: p.gender,
+        style: p.style,
+        traits: p.personalityTraits.traits,
+        approach: p.personalityTraits.approach,
+      })),
     };
   }
 

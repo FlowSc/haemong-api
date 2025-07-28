@@ -1,11 +1,10 @@
-import { IsEnum } from 'class-validator';
-import { BotGender } from '../../common/enums/bot-gender.enum';
-import { BotStyle } from '../../common/enums/bot-style.enum';
+import { IsNumber, IsPositive } from 'class-validator';
+import { BotPersonality } from '../entities/bot-personality.entity';
 
 export class BotSettingsDto {
-  @IsEnum(BotGender)
-  gender: BotGender;
+  @IsNumber()
+  @IsPositive()
+  personalityId: number;
 
-  @IsEnum(BotStyle)
-  style: BotStyle;
+  personality?: BotPersonality;
 }

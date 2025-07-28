@@ -6,14 +6,17 @@ import {
 import { ChatRoom } from '../entities/chat-room.entity';
 import { CreateChatRoomDto } from '../dto/create-chat-room.dto';
 import { AiService } from './ai.service';
-import { BotGender } from '../../common/enums/bot-gender.enum';
-import { BotStyle } from '../../common/enums/bot-style.enum';
+import { BotPersonalityService } from './bot-personality.service';
+import { BotSettings } from '../entities/bot-settings.entity';
 
 @Injectable()
 export class ChatRoomService {
   private readonly activeLocks = new Map<string, Promise<ChatRoom>>();
 
-  constructor(private aiService: AiService) {}
+  constructor(
+    private aiService: AiService,
+    private botPersonalityService: BotPersonalityService,
+  ) {}
 
   async getTodaysChatRoom(userId: string): Promise<ChatRoom> {
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
@@ -179,55 +182,27 @@ export class ChatRoomService {
     const today = new Date().toISOString().split('T')[0];
     const defaultTitle = createChatRoomDto.title || `${today} 꿈 해몽`;
 
-    let botSettings;
+    let botSettings: BotSettings;
     try {
       botSettings =
-        createChatRoomDto.botSettings || this.aiService.getDefaultBotSettings();
+        createChatRoomDto.botSettings ||
+        (await this.aiService.getDefaultBotSettings());
     } catch (error) {
       console.error('Failed to get bot settings:', error);
-      // Fallback to hardcoded default
+      // Fallback to default personality
+      const defaultPersonality =
+        await this.botPersonalityService.getDefaultPersonality();
       botSettings = {
-        gender: 'female',
-        style: 'eastern',
+        personalityId: defaultPersonality.id,
+        personality: defaultPersonality,
       };
-    }
-
-    // Get bot_settings_id from bot_settings table
-    let { data: botSettingsData, error: botSettingsError } =
-      await getSupabaseAdminClient()
-        .from('bot_settings')
-        .select('id')
-        .eq('gender', botSettings.gender)
-        .eq('style', botSettings.style)
-        .single();
-
-    if (botSettingsError) {
-      console.error('Failed to find bot settings:', botSettingsError);
-      // Try to get default bot settings (male, eastern)
-      const { data: defaultBotSettings, error: defaultError } =
-        await getSupabaseAdminClient()
-          .from('bot_settings')
-          .select('id')
-          .eq('gender', 'male')
-          .eq('style', 'eastern')
-          .single();
-
-      if (defaultError) {
-        throw new Error(`Failed to find bot settings: ${defaultError.message}`);
-      }
-      botSettingsData = defaultBotSettings;
-    }
-
-    if (!botSettingsData) {
-      throw new Error('Bot settings not found');
     }
 
     console.log('Creating chat room with:', {
       userId,
       title: defaultTitle,
       date: today,
-      botSettings,
-      botSettingsId: botSettingsData.id,
+      personalityId: botSettings.personalityId,
     });
 
     const { data, error } = await getSupabaseAdminClient()
@@ -237,16 +212,24 @@ export class ChatRoomService {
           user_id: userId,
           title: defaultTitle,
           date: today,
-          bot_settings_id: botSettingsData.id,
+          personality_id: botSettings.personalityId,
           is_active: true,
         },
       ])
       .select(
         `
         *,
-        bot_settings:bot_settings_id (
+        bot_personalities:personality_id (
+          id,
+          name,
+          display_name,
           gender,
-          style
+          style,
+          personality_traits,
+          system_prompt,
+          welcome_message,
+          image_style_prompt,
+          is_active
         )
       `,
       )
@@ -274,9 +257,17 @@ export class ChatRoomService {
         .select(
           `
           *,
-          bot_settings:bot_settings_id (
+          bot_personalities:personality_id (
+            id,
+            name,
+            display_name,
             gender,
-            style
+            style,
+            personality_traits,
+            system_prompt,
+            welcome_message,
+            image_style_prompt,
+            is_active
           )
         `,
         )
@@ -345,9 +336,17 @@ export class ChatRoomService {
       .select(
         `
         *,
-        bot_settings:bot_settings_id (
+        bot_personalities:personality_id (
+          id,
+          name,
+          display_name,
           gender,
-          style
+          style,
+          personality_traits,
+          system_prompt,
+          welcome_message,
+          image_style_prompt,
+          is_active
         )
       `,
       )
@@ -371,9 +370,17 @@ export class ChatRoomService {
       .select(
         `
         *,
-        bot_settings:bot_settings_id (
+        bot_personalities:personality_id (
+          id,
+          name,
+          display_name,
           gender,
-          style
+          style,
+          personality_traits,
+          system_prompt,
+          welcome_message,
+          image_style_prompt,
+          is_active
         )
       `,
       )
@@ -402,9 +409,17 @@ export class ChatRoomService {
       .select(
         `
         *,
-        bot_settings:bot_settings_id (
+        bot_personalities:personality_id (
+          id,
+          name,
+          display_name,
           gender,
-          style
+          style,
+          personality_traits,
+          system_prompt,
+          welcome_message,
+          image_style_prompt,
+          is_active
         )
       `,
       )
@@ -430,35 +445,35 @@ export class ChatRoomService {
 
   async updateBotSettings(
     chatRoomId: string,
-    botSettings: any,
+    personalityId: number,
   ): Promise<ChatRoom> {
-    // Get bot_settings_id from bot_settings table
-    const { data: botSettingsData, error: botSettingsError } =
-      await getSupabaseAdminClient()
-        .from('bot_settings')
-        .select('id')
-        .eq('gender', botSettings.gender)
-        .eq('style', botSettings.style)
-        .single();
-
-    if (botSettingsError) {
-      throw new Error(
-        `Failed to find bot settings: ${botSettingsError.message}`,
-      );
+    // 봇 성격이 존재하는지 확인
+    const personality =
+      await this.botPersonalityService.findById(personalityId);
+    if (!personality) {
+      throw new Error(`봇 성격을 찾을 수 없습니다: ${personalityId}`);
     }
 
     const { data, error } = await getSupabaseAdminClient()
       .from('chat_rooms')
       .update({
-        bot_settings_id: botSettingsData.id,
+        personality_id: personalityId,
       })
       .eq('id', chatRoomId)
       .select(
         `
         *,
-        bot_settings:bot_settings_id (
+        bot_personalities:personality_id (
+          id,
+          name,
+          display_name,
           gender,
-          style
+          style,
+          personality_traits,
+          system_prompt,
+          welcome_message,
+          image_style_prompt,
+          is_active
         )
       `,
       )
@@ -472,32 +487,55 @@ export class ChatRoomService {
   }
 
   private async mapSupabaseChatRoomToEntity(data: any): Promise<ChatRoom> {
-    let botSettings = { gender: BotGender.MALE, style: BotStyle.EASTERN }; // default
+    let botSettings: BotSettings;
 
-    // Check if bot_settings is already joined in the query
-    if (
-      data.bot_settings &&
-      data.bot_settings.gender &&
-      data.bot_settings.style
-    ) {
+    // Check if bot_personalities is already joined in the query
+    if (data.bot_personalities && data.bot_personalities.id) {
+      const personalityData = data.bot_personalities;
       botSettings = {
-        gender: data.bot_settings.gender as BotGender,
-        style: data.bot_settings.style as BotStyle,
+        personalityId: personalityData.id,
+        personality: {
+          id: personalityData.id,
+          name: personalityData.name,
+          displayName: personalityData.display_name,
+          gender: personalityData.gender,
+          style: personalityData.style,
+          personalityTraits: personalityData.personality_traits,
+          systemPrompt: personalityData.system_prompt,
+          welcomeMessage: personalityData.welcome_message,
+          imageStylePrompt: personalityData.image_style_prompt,
+          isActive: personalityData.is_active,
+          createdAt: new Date(), // Will be set by DB
+          updatedAt: new Date(), // Will be set by DB
+        },
       };
-    } else if (data.bot_settings_id) {
-      // Fallback: fetch bot settings separately if not joined
-      const { data: botSettingsData, error } = await getSupabaseAdminClient()
-        .from('bot_settings')
-        .select('gender, style')
-        .eq('id', data.bot_settings_id)
-        .single();
-
-      if (!error && botSettingsData) {
+    } else if (data.personality_id) {
+      // Fallback: fetch bot personality separately if not joined
+      const personality = await this.botPersonalityService.findById(
+        data.personality_id,
+      );
+      if (personality) {
         botSettings = {
-          gender: botSettingsData.gender as BotGender,
-          style: botSettingsData.style as BotStyle,
+          personalityId: personality.id,
+          personality,
+        };
+      } else {
+        // Final fallback: use default personality
+        const defaultPersonality =
+          await this.botPersonalityService.getDefaultPersonality();
+        botSettings = {
+          personalityId: defaultPersonality.id,
+          personality: defaultPersonality,
         };
       }
+    } else {
+      // Final fallback: use default personality
+      const defaultPersonality =
+        await this.botPersonalityService.getDefaultPersonality();
+      botSettings = {
+        personalityId: defaultPersonality.id,
+        personality: defaultPersonality,
+      };
     }
 
     return {

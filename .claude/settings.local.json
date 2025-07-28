@@ -20,7 +20,9 @@
       "Bash(find:*)",
       "Bash(git reset:*)",
       "Bash(git restore:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": []
   }

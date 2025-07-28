@@ -80,9 +80,8 @@ export class ImageGenerationService {
         userId,
         chatRoomId,
         imageUrl: storageUrl,
+        personalityId: botSettings.personalityId,
         imagePrompt,
-        botGender: botSettings.gender,
-        botStyle: botSettings.style,
         isPremium,
       });
 
@@ -108,7 +107,7 @@ export class ImageGenerationService {
 
     return `${stylePrompt}
 
-Interpretation: "${cleanedInterpretation}" `;
+Dream: "${cleanedInterpretation}" `;
   }
 
   private cleanDreamContent(content: string): string {
@@ -142,62 +141,12 @@ Interpretation: "${cleanedInterpretation}" `;
     return `일본 1990-2000년대 소년만화 스타일`;
   }
 
-  async generateWelcomeImage(
-    botSettings: BotSettings,
-    userId?: string,
-  ): Promise<string | null> {
-    try {
-      const welcomePrompt = this.getWelcomeImagePrompt(botSettings);
-
-      const response = await this.openai.images.generate({
-        model: 'dall-e-3',
-        prompt: welcomePrompt,
-        n: 1,
-        size: '1024x1024',
-        quality: 'standard',
-        style: 'natural',
-      });
-
-      const tempImageUrl = response.data?.[0]?.url;
-      if (!tempImageUrl) {
-        return null;
-      }
-
-      // Welcome 이미지도 Storage에 저장
-      const tempUserId = userId || 'welcome-' + Date.now();
-      const tempChatRoomId = 'welcome-' + Date.now();
-
-      const storageUrl = await this.storageService.uploadImageFromUrl(
-        tempImageUrl,
-        tempUserId,
-        tempChatRoomId,
-      );
-
-      return storageUrl || tempImageUrl; // Storage 실패 시 DALL-E URL 폴백
-    } catch (error) {
-      console.error('Welcome image generation error:', error);
-      return null;
-    }
-  }
-
-  private getWelcomeImagePrompt(botSettings: BotSettings): string {
-    const { gender } = botSettings;
-    const baseStyle = `Vibrant cartoon anime art style with bold colors, strong contrast, clear cel-shading, dynamic lighting, and professional animated look. Rich saturated colors and sharp clean lines.`;
-
-    if (gender === BotGender.MALE) {
-      return `${baseStyle} A wise and confident male dream interpreter sitting in a mystical library filled with floating dream symbols, ancient books, and dramatic magical lighting. Strong facial features, large expressive eyes, determined expression, detailed robes with rich colors. Think modern anime character design with vivid backgrounds and bold, eye-catching visuals.`;
-    } else {
-      return `${baseStyle} A kind and mystical female dream interpreter surrounded by floating magical elements, glowing symbols, and dramatic moonlight. Beautiful large eyes, flowing hair with dynamic movement, confident expression, elegant clothing with vibrant colors and detailed textures. Think modern anime character design with bold, cartoon-like atmosphere.`;
-    }
-  }
-
   private async saveGeneratedImage(data: {
     userId: string;
     chatRoomId: string;
     imageUrl: string;
+    personalityId: number;
     imagePrompt: string;
-    botGender: BotGender;
-    botStyle: BotStyle;
     isPremium: boolean;
   }): Promise<GeneratedImage | null> {
     try {
@@ -209,8 +158,7 @@ Interpretation: "${cleanedInterpretation}" `;
             chat_room_id: data.chatRoomId,
             image_url: data.imageUrl,
             image_prompt: data.imagePrompt,
-            bot_gender: data.botGender,
-            bot_style: data.botStyle,
+            personalityId: data.personalityId,
             generation_model: 'dall-e-3',
             is_premium: data.isPremium,
           },
@@ -237,8 +185,7 @@ Interpretation: "${cleanedInterpretation}" `;
       chatRoomId: data.chat_room_id,
       imageUrl: data.image_url,
       imagePrompt: data.image_prompt,
-      botGender: data.bot_gender,
-      botStyle: data.bot_style,
+      personalityId: data.personalityId,
       generationModel: data.generation_model,
       isPremium: data.is_premium,
       createdAt: new Date(data.created_at),
