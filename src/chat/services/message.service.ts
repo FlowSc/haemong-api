@@ -41,6 +41,8 @@ export class MessageService {
       chatRoomId,
       MessageType.USER,
       sendMessageDto.content,
+      null,
+      false, // 사용자 메시지는 항상 interpretation = false
     );
 
     // Get recent conversation history for context
@@ -53,6 +55,13 @@ export class MessageService {
     const aiResponse = await this.aiService.generateDreamInterpretation(
       sendMessageDto.content,
       chatRoom.botSettings,
+      recentMessages,
+    );
+
+    // 실제 꿈 해석인지 판단
+    const isInterpretation = this.isActualDreamInterpretation(
+      sendMessageDto.content,
+      aiResponse,
       recentMessages,
     );
 
@@ -75,6 +84,7 @@ export class MessageService {
       MessageType.BOT,
       finalResponse,
       null, // No image URL initially
+      isInterpretation, // 해몽 여부 설정
     );
 
     return {
@@ -88,11 +98,13 @@ export class MessageService {
     type: MessageType,
     content: string,
     imageUrl?: string | null,
+    interpretation: boolean = false,
   ): Promise<Message> {
     const insertData: any = {
       chat_room_id: chatRoomId,
       type,
       content,
+      interpretation,
     };
 
     // 이미지 URL이 있는 경우에만 추가
@@ -223,6 +235,7 @@ export class MessageService {
       MessageType.BOT,
       welcomeMessage,
       null,
+      false, // 웰컴 메시지는 해몽이 아님
     );
   }
 
@@ -287,6 +300,7 @@ export class MessageService {
           MessageType.BOT,
           '꿈의 이미지를 생성했습니다.',
           imageUrl,
+          false, // 이미지 생성 메시지는 해몽이 아님
         );
 
         return {
@@ -320,8 +334,55 @@ export class MessageService {
       type: data.type,
       content: data.content,
       imageUrl: data.image_url || undefined,
+      interpretation: data.interpretation || false,
       createdAt: new Date(data.created_at),
     };
+  }
+
+  /**
+   * 실제 꿈 해석인지 판단하는 메서드
+   */
+  private isActualDreamInterpretation(
+    userMessage: string,
+    botResponse: string,
+    conversationHistory: Message[],
+  ): boolean {
+    // 대화 히스토리에서 이미 꿈을 설명한 적이 있는지 확인
+    const hasPreviousDreamDescription = conversationHistory.some(
+      (msg) =>
+        msg.type === MessageType.USER &&
+        (msg.content.includes('꿈') ||
+          msg.content.includes('꾸었') ||
+          msg.content.includes('꿈에서') ||
+          msg.content.includes('꿈속')),
+    );
+
+    // 봇 응답에 해몽 관련 키워드가 포함되어 있는지 확인
+    const hasInterpretationKeywords =
+      botResponse.includes('해몽') ||
+      botResponse.includes('꿈의 상징') ||
+      botResponse.includes('꿈이 나타내는') ||
+      botResponse.includes('무의식') ||
+      botResponse.includes('길흉') ||
+      botResponse.includes('오행') ||
+      botResponse.includes('상징적 의미') ||
+      botResponse.includes('심리적 상태');
+
+    // 사용자 메시지가 단순한 질문이나 인사말인지 확인
+    const isSimpleQuery =
+      userMessage.length < 20 ||
+      userMessage.includes('안녕') ||
+      userMessage.includes('누구') ||
+      userMessage.includes('뭐야') ||
+      userMessage.includes('해몽이 뭐') ||
+      userMessage.includes('어떻게');
+
+    // 사용자 메시지에 꿈 내용이 포함되어 있고, 봇이 해몽을 제공했으면 true
+    return (
+      !isSimpleQuery &&
+      (hasPreviousDreamDescription || userMessage.includes('꿈')) &&
+      hasInterpretationKeywords
+    );
   }
 
   /**

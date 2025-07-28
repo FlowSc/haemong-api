@@ -80,7 +80,6 @@ export class ImageGenerationService {
         userId,
         chatRoomId,
         imageUrl: storageUrl,
-        personalityId: botSettings.personalityId,
         imagePrompt,
         isPremium,
       });
@@ -145,7 +144,6 @@ Dream: "${cleanedInterpretation}" `;
     userId: string;
     chatRoomId: string;
     imageUrl: string;
-    personalityId: number;
     imagePrompt: string;
     isPremium: boolean;
   }): Promise<GeneratedImage | null> {
@@ -158,7 +156,6 @@ Dream: "${cleanedInterpretation}" `;
             chat_room_id: data.chatRoomId,
             image_url: data.imageUrl,
             image_prompt: data.imagePrompt,
-            personalityId: data.personalityId,
             generation_model: 'dall-e-3',
             is_premium: data.isPremium,
           },
@@ -185,7 +182,6 @@ Dream: "${cleanedInterpretation}" `;
       chatRoomId: data.chat_room_id,
       imageUrl: data.image_url,
       imagePrompt: data.image_prompt,
-      personalityId: data.personalityId,
       generationModel: data.generation_model,
       isPremium: data.is_premium,
       createdAt: new Date(data.created_at),

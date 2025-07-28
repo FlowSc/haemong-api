@@ -4,7 +4,6 @@ export class GeneratedImage {
   chatRoomId: string;
   imageUrl: string;
   imagePrompt?: string;
-  personalityId: number;
   generationModel: string;
   isPremium: boolean;
   createdAt: Date;

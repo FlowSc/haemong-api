@@ -22,7 +22,9 @@
       "Bash(git restore:*)",
       "Bash(git rm:*)",
       "Bash(npx eslint:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(timeout 10s npm run start:dev)",
+      "Bash(gtimeout:*)"
     ],
     "deny": []
   }
